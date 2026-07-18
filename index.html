@@ -176,7 +176,7 @@ async function initCamera(){
   $('startStatus').textContent='Loading pose model…';
   const files=await FilesetResolver.forVisionTasks(
     'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm');
-  landmarker=await PoseLandmarker.createFromOptions(files,{
+  const lmk=await PoseLandmarker.createFromOptions(files,{
     baseOptions:{modelAssetPath:
       'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',
       delegate:'GPU'},runningMode:'VIDEO',numPoses:1});
@@ -187,6 +187,7 @@ async function initCamera(){
   await new Promise(r=>video.onloadedmetadata=r);
   skel.width=video.videoWidth;skel.height=video.videoHeight;
   $('camwrap').classList.remove('hidden');
+  landmarker=lmk; // cache only after the whole chain succeeded — a denied camera can be retried
 }
 let micTrack=null;
 
@@ -196,7 +197,21 @@ const hands={
   R:{lm:16,sh:12,x:.65,y:.7,px:0,py:0,speed:0,vyN:0,ext:0,pext:0,cool:0,anim:0,upper:0}
 };
 let shoulderW=.2,lean=0,leanBase=null,lastPose=0,guardUp=false;
-const cal={active:false,samples:0,done:false,started:0,cb:null};
+const cal={active:false,samples:0,done:false,started:0,cb:null,seen:false,lastMid:.5};
+function calDone(){
+  leanBase=cal.lastMid;
+  cal.done=true;cal.active=false;
+  $('calOv').classList.add('hidden');
+  $('camwrap').classList.remove('big');$('camwrap').classList.remove('good');
+  if(cal.cb)cal.cb();
+}
+function calAbort(msg){
+  cal.active=false;
+  $('calOv').classList.add('hidden');
+  $('camwrap').classList.remove('big');$('camwrap').classList.remove('good');
+  $('startOv').classList.remove('hidden');
+  $('startStatus').textContent=msg;
+}
 
 function poseLoop(){
   if(!alive)return;
@@ -204,7 +219,16 @@ function poseLoop(){
   const now=performance.now();
   const res=landmarker.detectForVideo(video,now);
   sctx.clearRect(0,0,skel.width,skel.height);
-  if(cal.active&&!cal.done)drawStanceGuide();
+  if(cal.active&&!cal.done){
+    drawStanceGuide();
+    // the 10s escape hatch must work even when NO person is detected
+    const elapsed=(now-cal.started)/1000;
+    $('calSkip').textContent='auto-start in '+Math.max(0,Math.ceil(10-elapsed))+'s';
+    if(elapsed>=10){
+      if(cal.seen)calDone();
+      else calAbort('Could not see you — check camera and lighting, then try again.');
+    }
+  }
   if(res.landmarks&&res.landmarks[0]){
     const lm=res.landmarks[0];
     const dt=Math.min(.1,(now-lastPose)/1000)||.033;lastPose=now;
@@ -216,10 +240,8 @@ function poseLoop(){
     if(cal.active&&!cal.done){
       const vis=i=>(lm[i].visibility==null||lm[i].visibility>.5)&&lm[i].x>0&&lm[i].x<1&&lm[i].y>0&&lm[i].y<1;
       const bodyOk=vis(11)&&vis(12)&&vis(23)&&vis(24)&&vis(15)&&vis(16);
-      const elapsed=(now-cal.started)/1000;
-      $('calSkip').textContent=elapsed<10?('auto-start in '+Math.ceil(10-elapsed)+'s'):'';
-      if(elapsed>=10&&bodyOk){finishCal();} // 10s grace: go through anyway
-      else if(!bodyOk){
+      if(bodyOk){cal.seen=true;cal.lastMid=mid}
+      if(!bodyOk){
         cal.samples=0;$('camwrap').classList.remove('good');
         $('calStatus').textContent='Step back — chest, hips and BOTH fists in frame';
         $('calFill').style.width='0%';
@@ -232,14 +254,7 @@ function poseLoop(){
         cal.samples++;
         $('calStatus').textContent='Perfect stance — hold it…';
         $('calFill').style.width=Math.min(100,cal.samples*4.2)+'%';
-        if(cal.samples>=24)finishCal();
-      }
-      function finishCal(){
-        leanBase=mid;
-        cal.done=true;cal.active=false;
-        $('calOv').classList.add('hidden');
-        $('camwrap').classList.remove('big');$('camwrap').classList.remove('good');
-        if(cal.cb)cal.cb();
+        if(cal.samples>=24)calDone();
       }
     }
     if(leanBase==null)leanBase=mid;
@@ -253,7 +268,7 @@ function poseLoop(){
       h.vyN=h.vyN*.4+(((h.y-h.py)/dt)/Math.max(.1,shoulderW))*.6; // vertical speed in shoulder-widths/s
       h.pext=h.ext;h.ext=Math.hypot(w.x-s.x,w.y-s.y)/shoulderW;
       h.cool=Math.max(0,h.cool-dt);
-      if(F.state==='fight'&&h.cool<=0){
+      if(F.state==='fight'&&h.cool<=0&&FX.stop<=0){ // no free hits inside frozen frames
         const upper=h.vyN<-5&&h.y<s.y+.25&&h.py>s.y+.05; // fist rocketing UP past the chest
         const jab=h.speed>1.5&&h.ext>1.0&&h.ext>h.pext+.035;
         if(upper||jab){
@@ -353,6 +368,7 @@ const HEAD_OPEN=()=>F.mode==='pvp'
 
 function startFight(lvl){
   F.mode='solo';
+  $('btnRematch').classList.add('hidden'); // PvP UI must never leak into solo
   F.lvl=lvl;F.op=OPPONENTS[Math.min(lvl,OPPONENTS.length-1)];
   bars.op.max=F.op.hp;bars.op.v=F.op.hp;bars.op.g=F.op.hp;
   if(lvl===0){bars.me.v=100;bars.me.g=100}else{bars.me.v=Math.min(100,bars.me.v+25)}
@@ -381,7 +397,7 @@ function playerPunch(hand,type){
     const isU=type==='upper';
     const dmg=(stag?16:counter?13:10)+(isU?4:0);
     landOnOpponent(hx,dmg,{counter,stag,upper:isU});
-    if(!stag)F.phase='hurt',F.phaseT=.42;
+    if(!stag&&F.phase!=='hurt'){F.phase='hurt';F.phaseT=.42} // no infinite stunlock by re-tagging hurt
     if(bars.op.v<=0)return koOpponent();
     if(F.combo>=3&&F.phase!=='stagger'){
       F.phase='stagger';F.phaseT=2.1;F.combo=0;$('combo').textContent='';
@@ -406,15 +422,20 @@ function landOnOpponent(hx,dmg,o){
   o.upper?SFX.upper():(o.counter||o.stag?SFX.crit():SFX.land());
   if(navigator.vibrate)navigator.vibrate(o.upper?100:o.counter||o.stag?85:50);
 }
-function blockedOnOpponent(hx){
-  setHP('op',bars.op.v-1);
+function startIncoming(t){
+  F.pvpType=t;
+  F.punchSide=Math.random()<.5?'L':'R';
+  F.phase='windup';F.phaseT=.5;F.windDur=.5;SFX.swish();
+}
+function blockedOnOpponent(hx,fxOnly){
+  if(!fxOnly)setHP('op',bars.op.v-1);
   F.anim.gRattle=1;
   addShake(.25);
   impactRing(hx,H*.35,'#8892b8');
   burst(hx,H*.35,'#8892b8',7,.7);
   pop(hx,H*.30,'BLOCKED','#8892b8');
   SFX.clank();
-  if(bars.op.v<=0)return koOpponent();
+  if(!fxOnly&&bars.op.v<=0)return koOpponent();
 }
 function koOpponent(){
   F.kos++;F.state='ko';F.phaseT=2.4;F.anim.slump=0;$('combo').textContent='';
@@ -423,9 +444,13 @@ function koOpponent(){
   burst(W/2,H*.3,'#c8ff3e',32,1.9);burst(W/2,H*.3,'#ffb03e',22,1.5);
   banner('💥 K.O.!','#c8ff3e');SFX.win();
   if(F.mode==='pvp'){
-    setTimeout(()=>{
+    if(VS.int){clearInterval(VS.int);VS.int=null} // stop broadcasting after the match
+    VS.koT=setTimeout(()=>{
+      VS.koT=null;
+      if(F.state!=='ko'||!VS.chan)return; // opponent may have left during the celebration
       $('endTitle').innerHTML='<span style="color:var(--lime)">YOU WON</span> 🏆';
       $('endStats').innerHTML=endLine();
+      $('btnRematch').disabled=false;$('btnRematch').textContent='🔁 REMATCH';
       $('btnRematch').classList.remove('hidden');
       $('endOv').classList.remove('hidden');
       F.state='over';
@@ -443,10 +468,16 @@ function opponentLands(dmg,upper){
   F.combo=0;$('combo').textContent='';
   if(bars.me.v<=0){
     F.state='over';SFX.ko();
-    if(F.mode==='pvp'){try{VS.chan&&VS.chan.send({type:'broadcast',event:'ko',payload:{from:VS.me}})}catch(e){}}
+    if(F.mode==='pvp'){
+      if(VS.int){clearInterval(VS.int);VS.int=null}
+      try{VS.chan&&VS.chan.send({type:'broadcast',event:'ko',payload:{from:VS.me}})}catch(e){}
+    }
     $('endTitle').innerHTML='<span class="m">KNOCKED</span> OUT';
     $('endStats').innerHTML=endLine();
-    if(F.mode==='pvp')$('btnRematch').classList.remove('hidden');
+    if(F.mode==='pvp'){
+      $('btnRematch').disabled=false;$('btnRematch').textContent='🔁 REMATCH';
+      $('btnRematch').classList.remove('hidden');
+    }
     setTimeout(()=>$('endOv').classList.remove('hidden'),700);
   }
 }
@@ -500,8 +531,14 @@ function think(dt){
       }
     }else if(F.phase==='recover'){
       A.ext=Math.max(0,1-((.6-F.phaseT)/.6)*2.2);
-      if(F.phaseT<=0)F.phase='guard';
-    }else if(F.phase==='hurt'&&F.phaseT<=0)F.phase='guard';
+      if(F.phaseT<=0){
+        if(VS.swingQ.length)startIncoming(VS.swingQ.shift()); // queued punch lands next
+        else F.phase='guard';
+      }
+    }else if(F.phase==='hurt'&&F.phaseT<=0){
+      if(VS.swingQ.length)startIncoming(VS.swingQ.shift());
+      else F.phase='guard';
+    }
     return;
   }
   // ---- solo AI ----
@@ -510,10 +547,10 @@ function think(dt){
   A.wob=F.phase==='stagger'?A.wob+dt*7:0;
   if(F.phase==='guard'&&F.phaseT<=0){
     if(F.tut===1){F.phase='breathe';F.phaseT=2.6;F.tut=2}
-    else if(F.tut===2){F.punchSide=Math.random()<.5?'L':'R';F.phase='windup';F.phaseT=F.op.windup*1.7;F.tut=0;
+    else if(F.tut===2){F.punchSide=Math.random()<.5?'L':'R';F.phase='windup';F.phaseT=F.windDur=F.op.windup*1.7;F.tut=0;
       SFX.swish();banner('🛡 FISTS UP OR LEAN TO A SIDE!','#3ee8ff')}
     else if(Math.random()<.5){F.phase='breathe';F.phaseT=rng(F.op.breathe)}
-    else{F.punchSide=Math.random()<.5?'L':'R';F.phase='windup';F.phaseT=F.op.windup;SFX.swish()}
+    else{F.punchSide=Math.random()<.5?'L':'R';F.phase='windup';F.phaseT=F.windDur=F.op.windup;SFX.swish()}
   }else if(F.phase==='breathe'&&F.phaseT<=0){
     F.phase='guard';F.phaseT=rng(F.op.guard);
   }else if(F.phase==='windup'&&F.phaseT<=0){
@@ -607,8 +644,8 @@ function glove(gx,gy,side,hu,u){
   let x=gx,y=gy+(1-A.guard)*u*.20,r=u*.055;
   if(A.gRattle>0){x+=(Math.random()-.5)*A.gRattle*12;y+=(Math.random()-.5)*A.gRattle*12}
   if(F.phase==='windup'&&F.punchSide===side){
-    const wd=F.mode==='pvp'?.5:F.op.windup*(F.tut?1.7:1);
-    const k=1-F.phaseT/wd;
+    const wd=F.windDur||1;
+    const k=Math.max(0,1-F.phaseT/wd);
     y+=k*u*.05;r*=1+k*.45;
     ctx.beginPath();ctx.arc(x,y,r+9+Math.sin(performance.now()/60)*3,0,7);
     ctx.strokeStyle='#ffb03e';ctx.lineWidth=5;ctx.stroke();
@@ -670,8 +707,8 @@ function drawDodgeCue(){
 const SBK='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRwZHJsbW5vZm5oemt0a2JldnVnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxMDExNTksImV4cCI6MjA4NzY3NzE1OX0.2AW07k706Fmzfm5kLSfeMwfigDXxXF1022-4cHCl_W8';
 const sbc=createClient('https://dpdrlmnofnhzktkbevug.supabase.co',SBK);
 const VS={on:false,chan:null,lobby:null,me:'',oppKey:'',oppName:'RIVAL',oppGuard:true,
-  int:null,roomTimer:null,shareCam:true,shareMic:true,vSend:null,aSend:null,
-  remMe:false,remOpp:false};
+  int:null,roomTimer:null,koT:null,shareCam:true,shareMic:true,vSend:null,aSend:null,
+  remMe:false,remOpp:false,swingQ:[],badKeys:new Set(),rtcDead:false};
 try{VS.shareCam=localStorage.getItem('bx_shcam')!=='0';
     VS.shareMic=localStorage.getItem('bx_shmic')!=='0'}catch(e){}
 let playerName='FIGHTER';
@@ -701,13 +738,15 @@ function vsEnterLobby(){
   VS.me=String(Date.now())+'-'+Math.floor(Math.random()*1e6);
   VS.lobby=sbc.channel('cardio-box-lobby',{config:{presence:{key:VS.me}}});
   VS.lobby.on('presence',{event:'sync'},()=>{
+    if(VS.chan)return; // already committed to a room — never re-pair or touch oppKey
     const st=VS.lobby.presenceState();
-    const keys=Object.keys(st).sort();
+    const keys=Object.keys(st).filter(k=>k===VS.me||!VS.badKeys.has(k)).sort();
     if(keys.length>=2){
       const pair=keys.slice(0,2);
       if(pair.includes(VS.me)){
-        VS.oppKey=pair[0]===VS.me?pair[1]:pair[0];
-        const meta=(st[VS.oppKey]&&st[VS.oppKey][0])||{};
+        const oppKey=pair[0]===VS.me?pair[1]:pair[0];
+        const meta=(st[oppKey]&&st[oppKey][0])||{};
+        VS.oppKey=oppKey;
         vsJoinRoom(pair.join('~'),meta.name||'RIVAL',pair[0]===VS.me);
       }
     }
@@ -716,31 +755,34 @@ function vsEnterLobby(){
 }
 function vsJoinRoom(roomId,oppName,isHost){
   if(VS.chan)return;
-  VS.oppName=oppName;VS.host=isHost;VS.paired=false;
+  VS.oppName=oppName;VS.host=isHost;VS.paired=false;VS.rtcDead=false;
   $('vsStatus').textContent='FOUND '+oppName+'! CONNECTING…';
   VS.chan=sbc.channel('cardio-box-'+roomId,{config:{presence:{key:VS.me}}});
   VS.chan.on('broadcast',{event:'state'},({payload:p})=>{
-    if(!p||p.from!==VS.oppKey)return;
+    if(!p||p.from!==VS.oppKey||F.state!=='fight')return;
     VS.oppGuard=!!p.g;
     if(typeof p.hp==='number'){bars.op.v=Math.max(0,p.hp)}
   });
   VS.chan.on('broadcast',{event:'swing'},({payload:p})=>{
     if(!p||p.from!==VS.oppKey||F.state!=='fight')return;
-    F.pvpType=p.t==='upper'?'upper':'jab';
-    F.punchSide=Math.random()<.5?'L':'R';
-    F.phase='windup';F.phaseT=.5;SFX.swish();
+    const t=p.t==='upper'?'upper':'jab';
+    if(F.phase==='windup'||F.phase==='punch'){ // don't clobber an in-flight punch — queue it
+      if(VS.swingQ.length<2)VS.swingQ.push(t);
+      return;
+    }
+    startIncoming(t);
   });
   VS.chan.on('broadcast',{event:'res'},({payload:p})=>{
-    if(!p||p.from!==VS.oppKey)return;
-    const u=Math.min(W,H),hx=W/2;
+    if(!p||p.from!==VS.oppKey||F.state!=='fight')return;
+    const hx=W/2;
     if(p.r==='hit'){landOnOpponent(hx,p.d||12,{upper:!!p.u});
       if(typeof p.hp==='number')bars.op.v=Math.max(0,p.hp);
-      F.phase='hurt';F.phaseT=.42;}
-    else if(p.r==='block')blockedOnOpponent(hx);
+      if(F.phase!=='windup'&&F.phase!=='punch'){F.phase='hurt';F.phaseT=.42}} // never cancel their incoming punch
+    else if(p.r==='block')blockedOnOpponent(hx,true); // fx only — victim owns their HP
     else if(p.r==='dodge'){pop(hx,H*.3,'MISSED! 💨','#8892b8');SFX.swish()}
   });
   VS.chan.on('broadcast',{event:'ko'},({payload:p})=>{
-    if(!p||p.from!==VS.oppKey)return;
+    if(!p||p.from!==VS.oppKey||F.state!=='fight')return;
     koOpponent();
   });
   VS.chan.on('broadcast',{event:'rem'},({payload:p})=>{
@@ -769,15 +811,17 @@ function vsJoinRoom(roomId,oppName,isHost){
     if(!VS.paired&&VS.on){
       if(VS.chan){sbc.removeChannel(VS.chan);VS.chan=null}
       vsStopRtc();
+      VS.badKeys.add(VS.oppKey); // don't re-pair with the same dead session in a loop
       $('vsStatus').textContent='OPPONENT UNRESPONSIVE — SEARCHING AGAIN…';
       vsEnterLobby();
     }
   },10000);
 }
 function vsStartMatch(){
-  VS.remMe=false;VS.remOpp=false;
+  VS.remMe=false;VS.remOpp=false;VS.swingQ=[];
   $('vsOv').classList.add('hidden');$('endOv').classList.add('hidden');
   $('btnRematch').classList.add('hidden');
+  $('btnRematch').disabled=false;$('btnRematch').textContent='🔁 REMATCH';
   F.mode='pvp';F.state='fight';F.phase='guard';F.phaseT=999;F.combo=0;
   F.op=null;F.pvpType='jab';
   Object.assign(F.anim,{guard:1,ext:0,hurt:0,hurtUp:0,slump:0,knock:0,gRattle:0,wob:0});
@@ -814,7 +858,7 @@ async function vsStartRtc(){
         $('oppTag').textContent=VS.oppName;
         $('oppCam').classList.remove('hidden');
         v.play().catch(()=>{v.muted=true;$('oppMute').textContent='🔇';v.play().catch(()=>{})});
-      }else if(pc.connectionState==='failed')vsStopRtc();
+      }else if(pc.connectionState==='failed')vsStopRtc(true); // dead network path — stay dead
     };
     pc.onicecandidate=e=>{if(e.candidate)try{
       VS.chan.send({type:'broadcast',event:'rtc',payload:{ice:e.candidate.toJSON(),from:VS.me}})}catch(x){}};
@@ -830,8 +874,8 @@ async function vsStartRtc(){
 }
 async function vsRtcMsg(p){
   try{
-    if(!p||p.from!==VS.oppKey)return;
-    if(!pc)await vsStartRtc();
+    if(!p||p.from!==VS.oppKey||VS.rtcDead)return; // late messages must not resurrect a failed pc
+    if(!pc){if(!VS.paired)return;await vsStartRtc()}
     if(!pc)return;
     if(p.sdp){
       if(p.sdp.type==='answer'&&pc.signalingState!=='have-local-offer')return;
@@ -848,7 +892,8 @@ async function vsRtcMsg(p){
     }
   }catch(e){}
 }
-function vsStopRtc(){
+function vsStopRtc(dead){
+  VS.rtcDead=dead===true;
   if(pc){try{pc.close()}catch(e){}pc=null}
   pendIce=[];VS.vSend=null;VS.aSend=null;
   const v=$('oppVid');v.srcObject=null;v.muted=false;
@@ -863,9 +908,10 @@ $('oppMute').onclick=()=>{
 function vsCleanup(){
   if(VS.int){clearInterval(VS.int);VS.int=null}
   if(VS.roomTimer){clearTimeout(VS.roomTimer);VS.roomTimer=null}
+  if(VS.koT){clearTimeout(VS.koT);VS.koT=null}
   if(VS.chan){sbc.removeChannel(VS.chan);VS.chan=null}
   if(VS.lobby){sbc.removeChannel(VS.lobby);VS.lobby=null}
-  VS.on=false;VS.paired=false;VS.remMe=false;VS.remOpp=false;
+  VS.on=false;VS.paired=false;VS.remMe=false;VS.remOpp=false;VS.swingQ=[];
   vsStopRtc();
   $('vsOv').classList.add('hidden');
   F.mode='solo';F.state='idle';
@@ -900,15 +946,25 @@ function loop(now){
   if(F.state==='fight'||F.state==='ko')drawPlayerGloves(rdt);
   drawFx(rdt);
   ctx.restore();
+  // danger heartbeat when you're nearly out
+  if(F.state==='fight'&&bars.me.v<=25){
+    const p=.5+Math.sin(performance.now()/180)*.5;
+    ctx.strokeStyle='rgba(255,50,80,'+(0.18+p*.25)+')';
+    ctx.lineWidth=16+p*10;
+    ctx.strokeRect(8,8,W-16,H-16);
+  }
   drawBars(rdt);
   requestAnimationFrame(loop);
 }
+let poseOn=false;
 async function beginCalibrated(cb){
   try{
     grabName();
     if(!landmarker)await initCamera();
-    alive=true;poseLoop();lastF=performance.now();requestAnimationFrame(loop);
+    alive=true;
+    if(!poseOn){poseOn=true;poseLoop()} // never stack a second pose/render loop
     cal.samples=0;cal.done=false;cal.active=true;cal.started=performance.now();cal.cb=cb;
+    cal.seen=false;
     $('calFill').style.width='0%';
     $('startOv').classList.add('hidden');
     $('camwrap').classList.add('big');
@@ -936,6 +992,9 @@ $('btnAgain').onclick=()=>{
 };
 alive=true;requestAnimationFrame(loop);
 if(location.search.includes('demo')){$('startOv').classList.add('hidden');startFight(0)}
+if(location.search.includes('vstest'))window.bxTest={
+  go:()=>{grabName();VS.on=true;$('startOv').classList.add('hidden');vsEnterLobby()},
+  punch:t=>playerPunch('R',t||'jab'),VS,F,bars};
 </script>
 </body>
 </html>
