@@ -26,26 +26,43 @@
     font-size:22px;color:var(--lime);z-index:5;pointer-events:none;text-shadow:0 0 16px rgba(200,255,62,.7)}
   #camwrap{position:fixed;right:14px;bottom:14px;width:150px;max-width:40vw;border-radius:14px;overflow:hidden;
     border:2px solid var(--cyan);box-shadow:0 0 24px rgba(62,232,255,.35);z-index:5}
-  #camwrap.big{right:50%;transform:translateX(50%);bottom:16%;width:min(380px,72vw);max-width:72vw;z-index:11}
+  #camwrap.big{right:50%;transform:translateX(50%);bottom:14%;width:min(380px,72vw);max-width:72vw;z-index:11}
   #camwrap.good{border-color:var(--lime);box-shadow:0 0 28px rgba(200,255,62,.5)}
   #cam{width:100%;display:block;transform:scaleX(-1)}
   #skel{position:absolute;inset:0;width:100%;height:100%;transform:scaleX(-1)}
+  #oppCam{position:fixed;top:104px;left:14px;z-index:8;width:104px;border-radius:14px;
+    overflow:hidden;border:2px solid var(--magenta);box-shadow:0 0 18px rgba(255,62,165,.4);background:#000}
+  #oppCam video{width:100%;aspect-ratio:3/4;object-fit:cover;display:block;transform:scaleX(-1)}
+  #oppCam .tag{position:absolute;bottom:0;left:0;right:0;font-family:'Bungee',cursive;
+    font-size:11px;text-align:center;background:rgba(255,62,165,.85);color:#fff;padding:2px 0}
+  #oppMute{position:absolute;top:4px;right:4px;font-size:14px;background:rgba(11,14,26,.6);
+    border-radius:8px;padding:2px 5px;box-shadow:none;color:#fff;border:none}
   .overlay{position:fixed;inset:0;background:rgba(11,14,26,.93);z-index:10;display:flex;flex-direction:column;
-    align-items:center;justify-content:center;gap:20px;text-align:center;padding:24px}
-  .overlay h1{font-family:'Bungee',cursive;font-size:clamp(32px,7vw,60px);line-height:1.05}
+    align-items:center;justify-content:center;gap:18px;text-align:center;padding:24px}
+  .overlay h1{font-family:'Bungee',cursive;font-size:clamp(30px,7vw,56px);line-height:1.05}
   .overlay h1 .c{color:var(--cyan)}.overlay h1 .m{color:var(--magenta)}
-  .overlay p{max-width:520px;font-size:16px;color:#aab3d6;line-height:1.5}
-  .ctl{background:var(--tunnel);border:1px solid #2a3357;border-radius:12px;padding:12px;font-size:14px;max-width:240px}
-  .ctl b{color:var(--lime);display:block;font-family:'Bungee',cursive;font-size:15px;margin-bottom:4px}
-  button{font-family:'Bungee',cursive;font-size:19px;color:var(--ink);background:var(--lime);border:none;
-    border-radius:14px;padding:15px 32px;cursor:pointer;box-shadow:0 6px 0 #7da317}
+  .overlay p{max-width:520px;font-size:15px;color:#aab3d6;line-height:1.5}
+  .ctl{background:var(--tunnel);border:1px solid #2a3357;border-radius:12px;padding:11px;font-size:13px;max-width:225px}
+  .ctl b{color:var(--lime);display:block;font-family:'Bungee',cursive;font-size:14px;margin-bottom:3px}
+  button{font-family:'Bungee',cursive;font-size:18px;color:var(--ink);background:var(--lime);border:none;
+    border-radius:14px;padding:14px 28px;cursor:pointer;box-shadow:0 6px 0 #7da317}
   button:active{transform:translateY(4px);box-shadow:0 2px 0 #7da317}
+  button.alt{background:var(--cyan);box-shadow:0 6px 0 #1d8ba0}
+  button.alt:active{box-shadow:0 2px 0 #1d8ba0}
+  input{font-family:'Bungee',cursive;font-size:16px;text-align:center;letter-spacing:1px;
+    background:var(--tunnel);border:2px solid var(--cyan);border-radius:12px;color:var(--paper);
+    padding:12px 16px;width:min(280px,80vw)}
   .status{font-size:15px;color:var(--cyan);min-height:22px}
   .hidden{display:none !important}
   #banner{position:fixed;top:16%;left:50%;transform:translate(-50%,-50%);font-family:'Bungee',cursive;
     font-size:clamp(22px,6vw,44px);color:var(--magenta);text-shadow:0 0 30px rgba(255,62,165,.8);
     z-index:6;opacity:0;pointer-events:none;transition:opacity .15s;white-space:nowrap}
   #flash{position:fixed;inset:0;pointer-events:none;z-index:7;opacity:0;background:radial-gradient(ellipse at center,transparent 25%,rgba(255,30,60,.6));transition:opacity .1s}
+  #vsSpin{width:34px;height:34px;border-radius:50%;border:4px solid #2a3357;
+    border-top-color:var(--cyan);animation:vspin .8s linear infinite}
+  @keyframes vspin{to{transform:rotate(360deg)}}
+  #vsPriv{display:flex;gap:10px}
+  #vsPriv button{font-size:13px;padding:10px 14px}
 </style>
 </head>
 <body>
@@ -61,38 +78,60 @@
 <div id="banner"></div>
 <div id="flash"></div>
 <div id="camwrap" class="hidden"><video id="cam" autoplay playsinline muted></video><canvas id="skel"></canvas></div>
+<div id="oppCam" class="hidden">
+  <video id="oppVid" autoplay playsinline></video>
+  <button id="oppMute">🔊</button>
+  <div class="tag" id="oppTag">RIVAL</div>
+</div>
 
 <div class="overlay" id="startOv">
   <h1><span class="c">CARDIO</span><span class="m">BOXING</span></h1>
-  <p>A live fight — your body is the controller. No buttons, no target circles: read him like a real opponent.</p>
-  <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
-    <div class="ctl"><b>🥊 PUNCH</b>Anytime. Gloves up = he blocks. When his gloves DROP, his head is open — smash it</div>
-    <div class="ctl"><b>🛡 BLOCK</b>Raise BOTH fists to your face to block his punch, then counter while he recovers</div>
-    <div class="ctl"><b>🙆 DODGE</b>Or lean your body to a side to slip it completely</div>
+  <p>A live fight — your body is the controller. Punch, UPPERCUT, block with your guard, dodge with your body.</p>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
+    <div class="ctl"><b>🥊 PUNCH</b>Anytime. His gloves up = blocked. Gloves down = smash his head</div>
+    <div class="ctl"><b>💥 UPPERCUT</b>Swing a fist UP from low — bigger damage, bigger launch</div>
+    <div class="ctl"><b>🛡 BLOCK</b>Both fists up by your face blocks his punch → counter window</div>
+    <div class="ctl"><b>🙆 DODGE</b>Lean your body to a side to slip completely</div>
   </div>
-  <p style="font-size:14px">3 fast hits = he STAGGERS wide open. KO him before he KOs you.</p>
-  <button id="btnStart">🔔 FIGHT</button>
+  <input id="playerName" placeholder="YOUR NAME" maxlength="12" autocomplete="off">
+  <button id="btnStart">🤖 SOLO — FIGHT THE CPU</button>
+  <button id="btnVs" class="alt">⚔️ MULTIPLAYER — FIGHT A REAL PLAYER</button>
   <div class="status" id="startStatus"></div>
-  <div style="font-size:13px;color:#6f7aa6">Prototype — nothing uploaded, camera stays on this device.</div>
+  <div style="font-size:13px;color:#6f7aa6">Prototype — solo: camera stays on device. Multiplayer: you choose what to share.</div>
 </div>
 
 <div class="overlay hidden" id="calOv">
   <h1><span class="c">GET IN</span> <span class="m">STANCE</span></h1>
-  <p id="calStatus">Stand centered, fists up, chest visible…</p>
+  <p id="calStatus">Fit your body in the outline — FISTS UP by your face 🥊</p>
   <div style="width:280px;height:14px;border:2px solid var(--cyan);border-radius:8px;overflow:hidden">
     <div id="calFill" style="height:100%;width:0%;background:var(--lime)"></div>
   </div>
+  <div style="font-size:13px;color:#6f7aa6" id="calSkip"></div>
+</div>
+
+<div class="overlay hidden" id="vsOv">
+  <h1><span class="c">VS</span> <span class="m">MODE</span></h1>
+  <div id="vsSpin"></div>
+  <p id="vsStatus" style="font-family:'Bungee',cursive;color:var(--cyan)">SEARCHING FOR OPPONENT…</p>
+  <div id="vsPriv">
+    <button id="tglCam" class="alt">📷 CAM: SHOWN</button>
+    <button id="tglMic" class="alt">🎤 MIC: ON</button>
+  </div>
+  <p style="font-size:13px;color:#6f7aa6">Your real guard blocks their real punches. Send this page to a friend to duel.</p>
+  <button id="btnVsCancel" class="alt">CANCEL</button>
 </div>
 
 <div class="overlay hidden" id="endOv">
   <h1 id="endTitle"></h1>
   <p id="endStats"></p>
-  <button id="btnAgain">🔔 REMATCH</button>
+  <button id="btnRematch" class="hidden">🔁 REMATCH</button>
+  <button id="btnAgain">🔔 FIGHT AGAIN</button>
 </div>
 
 <script type="module">
 import { FilesetResolver, PoseLandmarker } from
   'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs';
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
 const $=id=>document.getElementById(id);
 const cnv=$('ring'),ctx=cnv.getContext('2d');
@@ -119,6 +158,7 @@ function noise(d,peak,hp){const c=ac(),t0=c.currentTime;
 const SFX={
   land(){tone(140,'square',.005,.11,.32,60);noise(.08,.14,900)},
   crit(){tone(170,'square',.005,.14,.34,55);tone(1319,'square',.01,.1,.15);noise(.12,.18,700)},
+  upper(){tone(120,'square',.005,.16,.36,300);noise(.14,.2,500)},
   hurt(){tone(110,'sawtooth',.01,.28,.3,50);noise(.1,.12,400)},
   swish(){tone(700,'sawtooth',.01,.14,.09,180)},
   clank(){tone(2200,'square',.002,.04,.1);tone(330,'square',.005,.09,.2,240)},
@@ -141,20 +181,22 @@ async function initCamera(){
       'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',
       delegate:'GPU'},runningMode:'VIDEO',numPoses:1});
   $('startStatus').textContent='Requesting camera…';
-  const stream=await navigator.mediaDevices.getUserMedia({video:{width:480,height:360},audio:false});
+  const stream=await navigator.mediaDevices.getUserMedia({video:{width:480,height:360},audio:true});
+  micTrack=stream.getAudioTracks()[0]||null;
   video.srcObject=stream;
   await new Promise(r=>video.onloadedmetadata=r);
   skel.width=video.videoWidth;skel.height=video.videoHeight;
   $('camwrap').classList.remove('hidden');
 }
+let micTrack=null;
 
-/* ---- player input ---- */
+/* ---- input ---- */
 const hands={
-  L:{lm:15,sh:11,x:.35,y:.7,px:0,py:0,speed:0,ext:0,pext:0,cool:0,anim:0},
-  R:{lm:16,sh:12,x:.65,y:.7,px:0,py:0,speed:0,ext:0,pext:0,cool:0,anim:0}
+  L:{lm:15,sh:11,x:.35,y:.7,px:0,py:0,speed:0,vyN:0,ext:0,pext:0,cool:0,anim:0,upper:0},
+  R:{lm:16,sh:12,x:.65,y:.7,px:0,py:0,speed:0,vyN:0,ext:0,pext:0,cool:0,anim:0,upper:0}
 };
 let shoulderW=.2,lean=0,leanBase=null,lastPose=0,guardUp=false;
-const cal={active:false,samples:[],done:false};
+const cal={active:false,samples:0,done:false,started:0,cb:null};
 
 function poseLoop(){
   if(!alive)return;
@@ -162,53 +204,78 @@ function poseLoop(){
   const now=performance.now();
   const res=landmarker.detectForVideo(video,now);
   sctx.clearRect(0,0,skel.width,skel.height);
+  if(cal.active&&!cal.done)drawStanceGuide();
   if(res.landmarks&&res.landmarks[0]){
     const lm=res.landmarks[0];
     const dt=Math.min(.1,(now-lastPose)/1000)||.033;lastPose=now;
     shoulderW=Math.max(.08,Math.abs(lm[11].x-lm[12].x));
     const mid=1-((lm[11].x+lm[12].x)/2);
+    const shY=(lm[11].y+lm[12].y)/2;
+    guardUp=lm[15].y<shY+.06&&lm[16].y<shY+.06
+      &&Math.abs(lm[15].x-lm[16].x)<shoulderW*1.7;
     if(cal.active&&!cal.done){
       const vis=i=>(lm[i].visibility==null||lm[i].visibility>.5)&&lm[i].x>0&&lm[i].x<1&&lm[i].y>0&&lm[i].y<1;
       const bodyOk=vis(11)&&vis(12)&&vis(23)&&vis(24)&&vis(15)&&vis(16);
-      if(!bodyOk){cal.samples=[];$('camwrap').classList.remove('good');
-        $('calStatus').textContent='Step back — I need to see your chest, hips and both fists';
+      const elapsed=(now-cal.started)/1000;
+      $('calSkip').textContent=elapsed<10?('auto-start in '+Math.ceil(10-elapsed)+'s'):'';
+      if(elapsed>=10&&bodyOk){finishCal();} // 10s grace: go through anyway
+      else if(!bodyOk){
+        cal.samples=0;$('camwrap').classList.remove('good');
+        $('calStatus').textContent='Step back — chest, hips and BOTH fists in frame';
+        $('calFill').style.width='0%';
+      }else if(!guardUp){
+        cal.samples=0;$('camwrap').classList.remove('good');
+        $('calStatus').textContent='Now FISTS UP by your face 🥊 — that is your BLOCK';
         $('calFill').style.width='0%';
       }else{
         $('camwrap').classList.add('good');
-        cal.samples.push(mid);
-        $('calStatus').textContent='Perfect — hold still, locking your stance…';
-        $('calFill').style.width=Math.min(100,cal.samples.length*3.4)+'%';
-        if(cal.samples.length>=30){
-          leanBase=cal.samples.reduce((a,b)=>a+b,0)/cal.samples.length;
-          cal.done=true;cal.active=false;
-          $('calOv').classList.add('hidden');
-          $('camwrap').classList.remove('big');$('camwrap').classList.remove('good');
-          startFight(0);
-        }
+        cal.samples++;
+        $('calStatus').textContent='Perfect stance — hold it…';
+        $('calFill').style.width=Math.min(100,cal.samples*4.2)+'%';
+        if(cal.samples>=24)finishCal();
+      }
+      function finishCal(){
+        leanBase=mid;
+        cal.done=true;cal.active=false;
+        $('calOv').classList.add('hidden');
+        $('camwrap').classList.remove('big');$('camwrap').classList.remove('good');
+        if(cal.cb)cal.cb();
       }
     }
     if(leanBase==null)leanBase=mid;
     leanBase+=(mid-leanBase)*Math.min(1,dt*.12);
     lean=(mid-leanBase)/shoulderW;
-    // guard: both wrists at shoulder height or higher, roughly in front of your face
-    const shY=(lm[11].y+lm[12].y)/2;
-    guardUp=lm[15].y<shY+.06&&lm[16].y<shY+.06
-      &&Math.abs(lm[15].x-lm[16].x)<shoulderW*1.7;
     for(const k of ['L','R']){
       const h=hands[k],w=lm[h.lm],s=lm[h.sh];
       h.px=h.x;h.py=h.y;h.x=w.x;h.y=w.y;
       const d=Math.hypot(h.x-h.px,h.y-h.py);
       h.speed=h.speed*.4+(d/dt)*.6;
+      h.vyN=h.vyN*.4+(((h.y-h.py)/dt)/Math.max(.1,shoulderW))*.6; // vertical speed in shoulder-widths/s
       h.pext=h.ext;h.ext=Math.hypot(w.x-s.x,w.y-s.y)/shoulderW;
       h.cool=Math.max(0,h.cool-dt);
-      if(F.state==='fight'&&h.cool<=0&&h.speed>1.5&&h.ext>1.0&&h.ext>h.pext+.035){
-        h.cool=.36;h.anim=1;playerPunch(k);
+      if(F.state==='fight'&&h.cool<=0){
+        const upper=h.vyN<-5&&h.y<s.y+.25&&h.py>s.y+.05; // fist rocketing UP past the chest
+        const jab=h.speed>1.5&&h.ext>1.0&&h.ext>h.pext+.035;
+        if(upper||jab){
+          h.cool=upper?.55:.36;h.anim=1;h.upper=upper?1:0;
+          playerPunch(k,upper?'upper':'jab');
+        }
       }
       sctx.fillStyle=k==='L'?'#3ee8ff':'#c8ff3e';
       sctx.beginPath();sctx.arc(w.x*skel.width,w.y*skel.height,6,0,7);sctx.fill();
     }
   }
   requestAnimationFrame(poseLoop);
+}
+function drawStanceGuide(){ // dashed body + raised-fist circles to fit into
+  const w=skel.width,h=skel.height;
+  sctx.strokeStyle='rgba(200,255,62,.85)';sctx.lineWidth=3;sctx.setLineDash([9,7]);
+  sctx.beginPath(); // head
+  sctx.arc(w/2,h*.22,w*.08,0,7);sctx.stroke();
+  sctx.strokeRect(w/2-w*.16,h*.32,w*.32,h*.5); // torso box
+  sctx.beginPath();sctx.arc(w/2-w*.19,h*.30,w*.06,0,7);sctx.stroke(); // left fist by face
+  sctx.beginPath();sctx.arc(w/2+w*.19,h*.30,w*.06,0,7);sctx.stroke(); // right fist by face
+  sctx.setLineDash([]);
 }
 
 /* ---- juice ---- */
@@ -229,7 +296,6 @@ function drawFx(dt){
     const k=r.t/r.life,u=Math.min(W,H);
     ctx.globalAlpha=1-k;ctx.strokeStyle=r.col;ctx.lineWidth=7*(1-k)+2;
     ctx.beginPath();ctx.arc(r.x,r.y,u*.03+k*u*.16,0,7);ctx.stroke();
-    // starburst spokes
     ctx.lineWidth=3;
     for(let i=0;i<8;i++){const a=i/8*Math.PI*2;
       const r1=u*(.04+k*.14),r2=r1+u*.05*(1-k);
@@ -256,40 +322,42 @@ function drawFx(dt){
   }
   ctx.globalAlpha=1;
 }
-/* HP bars with ghost drain */
 const bars={me:{v:100,g:100,max:100},op:{v:60,g:60,max:60}};
 function setHP(which,v){const b=bars[which];b.v=Math.max(0,v);
   const el=$(which==='me'?'hpMe':'hpOp');
   el.classList.remove('pain');void el.offsetWidth;el.classList.add('pain');}
 function drawBars(dt){
   for(const k of ['me','op']){const b=bars[k];
-    b.g+=(b.v-b.g)*Math.min(1,dt*3.2); // ghost trails behind → you SEE the chunk you took off
+    b.g+=(b.v-b.g)*Math.min(1,dt*3.2);
     const el=$(k==='me'?'hpMe':'hpOp');
     el.querySelector('.fill').style.width=(b.v/b.max*100)+'%';
     el.querySelector('.ghost').style.width=(Math.max(b.g,b.v)/b.max*100)+'%';
   }
 }
 
-/* ---- fight ---- */
+/* ---- fight core ---- */
 const OPPONENTS=[
   {name:'BRUTUS',hue:'#ff3ea5',hp:60, breathe:[1.1,1.6],guard:[1.2,2.0],windup:1.1,dmg:12},
   {name:'IRONJAW',hue:'#ffb03e',hp:85, breathe:[.9,1.3],guard:[1.0,1.8],windup:.9,dmg:15},
   {name:'COBRA',hue:'#3ee8ff', hp:110,breathe:[.7,1.1],guard:[.9,1.5],windup:.72,dmg:18},
   {name:'THE WALL',hue:'#c8ff3e',hp:140,breathe:[.6,.95],guard:[.8,1.3],windup:.6,dmg:22}
 ];
-const F={state:'idle',lvl:0,op:null,phase:'guard',phaseT:0,punchSide:null,dodged:false,blocked:false,
-  combo:0,comboT:0,
-  anim:{guard:1,ext:0,extSide:'L',hurt:0,bob:0,slump:0,knock:0,gRattle:0,wob:0},
+const F={state:'idle',mode:'solo',lvl:0,op:null,phase:'guard',phaseT:0,punchSide:null,dodged:false,blocked:false,
+  combo:0,comboT:0,pvpType:'jab',
+  anim:{guard:1,ext:0,extSide:'L',hurt:0,hurtUp:0,bob:0,slump:0,knock:0,gRattle:0,wob:0},
   kos:0,landed:0,thrown:0,dodges:0,blocks:0,tut:0};
 const rng=([a,b])=>a+Math.random()*(b-a);
-const HEAD_OPEN=()=>F.phase==='breathe'||F.phase==='recover'||F.phase==='stagger'||F.phase==='hurt';
+const HEAD_OPEN=()=>F.mode==='pvp'
+  ?(!VS.oppGuard||F.phase==='recover'||F.phase==='hurt')
+  :(F.phase==='breathe'||F.phase==='recover'||F.phase==='stagger'||F.phase==='hurt');
 
 function startFight(lvl){
+  F.mode='solo';
   F.lvl=lvl;F.op=OPPONENTS[Math.min(lvl,OPPONENTS.length-1)];
   bars.op.max=F.op.hp;bars.op.v=F.op.hp;bars.op.g=F.op.hp;
   if(lvl===0){bars.me.v=100;bars.me.g=100}else{bars.me.v=Math.min(100,bars.me.v+25)}
   F.state='fight';F.phase='guard';F.phaseT=lvl===0?2.2:1.2;F.combo=0;
-  Object.assign(F.anim,{guard:1,ext:0,hurt:0,slump:0,knock:0,gRattle:0,wob:0});
+  Object.assign(F.anim,{guard:1,ext:0,hurt:0,hurtUp:0,slump:0,knock:0,gRattle:0,wob:0});
   F.tut=lvl===0?1:0;
   $('nameOp').textContent=F.op.name+' · LV '+(lvl+1);
   $('roundTag').textContent='ROUND '+(lvl+1);
@@ -297,44 +365,56 @@ function startFight(lvl){
   banner('🔔 ROUND '+(lvl+1),'#c8ff3e');SFX.bell();
   if(F.tut)setTimeout(()=>{if(F.state==='fight')banner('PUNCH WHEN HIS GLOVES DROP!','#3ee8ff')},1600);
 }
-function playerPunch(hand){
+function playerPunch(hand,type){
   if(F.state!=='fight')return;
   F.thrown++;
   const u=Math.min(W,H);
   const hx=W/2+(hand==='L'?u*.07:-u*.07);
+  if(F.mode==='pvp'){
+    try{VS.chan&&VS.chan.send({type:'broadcast',event:'swing',payload:{t:type,from:VS.me}})}catch(e){}
+    SFX.swish();
+    return; // result comes back from the victim
+  }
   if(HEAD_OPEN()){
     const counter=F.phase==='recover';
     const stag=F.phase==='stagger';
-    const dmg=stag?16:counter?13:10;
-    F.landed++;
-    setHP('op',bars.op.v-dmg);
-    F.combo=(F.comboT>0?F.combo+1:1);F.comboT=2.4;
-    $('combo').textContent=F.combo>=2?F.combo+' HITS!':'';
-    F.anim.hurt=1;F.anim.knock=(hand==='L'?1:-1);
-    hitStop(counter||stag?.12:.09);addShake(counter||stag?.95:.6);
-    impactRing(hx,H*.30,counter?'#ffb03e':'#fff');
-    burst(hx,H*.30,stag?'#ffb03e':counter?'#ffb03e':'#c8ff3e',counter||stag?22:14,counter||stag?1.4:1);
-    pop(hx,H*.24,'-'+dmg,stag?'#ffb03e':'#c8ff3e',true);
-    if(counter)pop(W/2,H*.14,'COUNTER!','#ffb03e',true);
-    counter||stag?SFX.crit():SFX.land();
-    if(navigator.vibrate)navigator.vibrate(counter||stag?85:50);
+    const isU=type==='upper';
+    const dmg=(stag?16:counter?13:10)+(isU?4:0);
+    landOnOpponent(hx,dmg,{counter,stag,upper:isU});
     if(!stag)F.phase='hurt',F.phaseT=.42;
     if(bars.op.v<=0)return koOpponent();
-    if(F.combo>=3&&F.phase!=='stagger'){ // rocked!
+    if(F.combo>=3&&F.phase!=='stagger'){
       F.phase='stagger';F.phaseT=2.1;F.combo=0;$('combo').textContent='';
       pop(W/2,H*.18,'STAGGERED!','#ffb03e',true);SFX.stagger();
     }
-  }else{
-    // his guard eats it — visibly
-    setHP('op',bars.op.v-1);
-    F.anim.gRattle=1;
-    addShake(.25);
-    impactRing(hx,H*.35,'#8892b8');
-    burst(hx,H*.35,'#8892b8',7,.7);
-    pop(hx,H*.30,'BLOCKED','#8892b8');
-    SFX.clank();
-    if(bars.op.v<=0)return koOpponent();
-  }
+  }else blockedOnOpponent(hx);
+}
+function landOnOpponent(hx,dmg,o){
+  F.landed++;
+  setHP('op',bars.op.v-dmg);
+  F.combo=(F.comboT>0?F.combo+1:1);F.comboT=2.4;
+  $('combo').textContent=F.combo>=2?F.combo+' HITS!':'';
+  F.anim.hurt=1;F.anim.knock=(Math.random()<.5?1:-1);
+  F.anim.hurtUp=o.upper?1:0;
+  hitStop(o.upper?.13:o.counter||o.stag?.12:.09);
+  addShake(o.upper?1.1:o.counter||o.stag?.95:.6);
+  impactRing(hx,H*.30,o.upper?'#ffb03e':o.counter?'#ffb03e':'#fff');
+  burst(hx,H*.30,o.upper?'#ffb03e':'#c8ff3e',o.upper?24:14,o.upper?1.5:1);
+  pop(hx,H*.24,'-'+dmg,o.upper?'#ffb03e':'#c8ff3e',true);
+  if(o.upper)pop(W/2,H*.12,'UPPERCUT! 💥','#ffb03e',true);
+  else if(o.counter)pop(W/2,H*.14,'COUNTER!','#ffb03e',true);
+  o.upper?SFX.upper():(o.counter||o.stag?SFX.crit():SFX.land());
+  if(navigator.vibrate)navigator.vibrate(o.upper?100:o.counter||o.stag?85:50);
+}
+function blockedOnOpponent(hx){
+  setHP('op',bars.op.v-1);
+  F.anim.gRattle=1;
+  addShake(.25);
+  impactRing(hx,H*.35,'#8892b8');
+  burst(hx,H*.35,'#8892b8',7,.7);
+  pop(hx,H*.30,'BLOCKED','#8892b8');
+  SFX.clank();
+  if(bars.op.v<=0)return koOpponent();
 }
 function koOpponent(){
   F.kos++;F.state='ko';F.phaseT=2.4;F.anim.slump=0;$('combo').textContent='';
@@ -342,44 +422,89 @@ function koOpponent(){
   impactRing(W/2,H*.3,'#fff');
   burst(W/2,H*.3,'#c8ff3e',32,1.9);burst(W/2,H*.3,'#ffb03e',22,1.5);
   banner('💥 K.O.!','#c8ff3e');SFX.win();
+  if(F.mode==='pvp'){
+    setTimeout(()=>{
+      $('endTitle').innerHTML='<span style="color:var(--lime)">YOU WON</span> 🏆';
+      $('endStats').innerHTML=endLine();
+      $('btnRematch').classList.remove('hidden');
+      $('endOv').classList.remove('hidden');
+      F.state='over';
+    },1500);
+  }
 }
-function opponentLands(){
-  setHP('me',bars.me.v-F.op.dmg);
-  hitStop(.08);addShake(1.05);FX.lurch=1;
+function opponentLands(dmg,upper){
+  setHP('me',bars.me.v-dmg);
+  hitStop(.08);addShake(upper?1.25:1.05);FX.lurch=1;
   $('flash').style.opacity=1;setTimeout(()=>$('flash').style.opacity=0,200);
-  pop(W/2,H*.6,'-'+F.op.dmg,'#ff3ea5',true);
+  pop(W/2,H*.6,'-'+dmg,'#ff3ea5',true);
+  if(upper)pop(W/2,H*.5,'UPPERCUT! 💥','#ff3ea5',true);
   SFX.hurt();
   if(navigator.vibrate)navigator.vibrate(170);
   F.combo=0;$('combo').textContent='';
   if(bars.me.v<=0){
     F.state='over';SFX.ko();
+    if(F.mode==='pvp'){try{VS.chan&&VS.chan.send({type:'broadcast',event:'ko',payload:{from:VS.me}})}catch(e){}}
     $('endTitle').innerHTML='<span class="m">KNOCKED</span> OUT';
     $('endStats').innerHTML=endLine();
+    if(F.mode==='pvp')$('btnRematch').classList.remove('hidden');
     setTimeout(()=>$('endOv').classList.remove('hidden'),700);
   }
 }
 function endLine(){
   const acc=F.thrown?Math.round(F.landed/F.thrown*100):0;
-  return 'KOs <b style="color:var(--lime)">'+F.kos+'</b> · Landed <b style="color:var(--cyan)">'+F.landed
-    +'</b> ('+acc+'%) · Blocked <b style="color:var(--cyan)">'+F.blocks
+  return 'Landed <b style="color:var(--cyan)">'+F.landed+'</b> ('+acc
+    +'%) · Blocked <b style="color:var(--cyan)">'+F.blocks
     +'</b> · Dodged <b style="color:var(--magenta)">'+F.dodges+'</b>';
 }
 
-/* ---- opponent brain ---- */
+/* ---- opponent brain: solo AI or remote player ---- */
 function think(dt){
   const A=F.anim;
   A.bob+=dt*3.1;A.hurt=Math.max(0,A.hurt-dt*2.4);A.knock*=Math.max(0,1-dt*5);
+  A.hurtUp=Math.max(0,A.hurtUp-dt*2.4);
   A.gRattle=Math.max(0,A.gRattle-dt*4);
   F.comboT=Math.max(0,F.comboT-dt);
   if(F.comboT<=0&&F.combo>0){F.combo=0;$('combo').textContent=''}
   if(F.state==='ko'){
     A.slump=Math.min(1,A.slump+dt*.85);
     F.phaseT-=dt;
-    if(F.phaseT<=0)startFight(F.lvl+1);
+    if(F.mode==='solo'&&F.phaseT<=0)startFight(F.lvl+1);
     return;
   }
   if(F.state!=='fight')return;
   F.phaseT-=dt;
+  if(F.mode==='pvp'){
+    // remote-driven: guard mirrors their real guard; punches arrive as events
+    const gT=(F.phase==='windup'||F.phase==='punch')?.85:(VS.oppGuard?1:0);
+    A.guard+=(gT-A.guard)*Math.min(1,dt*7);
+    if(F.phase==='windup'&&F.phaseT<=0){F.phase='punch';F.phaseT=.32;F.dodged=false;F.blocked=false}
+    else if(F.phase==='punch'){
+      A.ext=1-F.phaseT/.32;A.extSide=F.punchSide;
+      if(!F.dodged&&!F.blocked&&A.ext>.2){
+        if(guardUp){F.blocked=true;F.blocks++;
+          pop(W/2,H*.55,'🛡 BLOCKED!','#3ee8ff',true);
+          impactRing(W/2,H*.62,'#3ee8ff');SFX.shield();addShake(.35);
+          try{VS.chan&&VS.chan.send({type:'broadcast',event:'res',payload:{r:'block',from:VS.me}})}catch(e){}
+        }else if(Math.abs(lean)>.42){F.dodged=true;F.dodges++;
+          pop(W/2+(lean>0?1:-1)*W*.18,H*.55,'SLIPPED! 😮‍💨','#3ee8ff',true);SFX.dodge();
+          try{VS.chan&&VS.chan.send({type:'broadcast',event:'res',payload:{r:'dodge',from:VS.me}})}catch(e){}
+        }
+      }
+      if(F.phaseT<=0){
+        if(!F.dodged&&!F.blocked){
+          const dmg=F.pvpType==='upper'?16:12;
+          opponentLands(dmg,F.pvpType==='upper');
+          try{VS.chan&&VS.chan.send({type:'broadcast',event:'res',payload:{r:'hit',d:dmg,hp:bars.me.v,u:F.pvpType==='upper',from:VS.me}})}catch(e){}
+        }
+        F.phase='recover';F.phaseT=.6;
+      }
+    }else if(F.phase==='recover'){
+      A.ext=Math.max(0,1-((.6-F.phaseT)/.6)*2.2);
+      if(F.phaseT<=0)F.phase='guard';
+    }else if(F.phase==='hurt'&&F.phaseT<=0)F.phase='guard';
+    return;
+  }
+  // ---- solo AI ----
   const gT=(F.phase==='guard')?1:(F.phase==='windup'?.85:0);
   A.guard+=(gT-A.guard)*Math.min(1,dt*7);
   A.wob=F.phase==='stagger'?A.wob+dt*7:0;
@@ -404,8 +529,8 @@ function think(dt){
       }
     }
     if(F.phaseT<=0){
-      if(!F.dodged&&!F.blocked)opponentLands();
-      F.phase='recover';F.phaseT=(F.dodged||F.blocked)?.95:.55; // defend well → longer counter window
+      if(!F.dodged&&!F.blocked)opponentLands(F.op.dmg,false);
+      F.phase='recover';F.phaseT=(F.dodged||F.blocked)?.95:.55;
       if(F.dodged||F.blocked)banner('COUNTER NOW!','#ffb03e');
     }
   }else if(F.phase==='recover'){
@@ -423,8 +548,8 @@ function drawOpponent(){
   const A=F.anim,u=Math.min(W,H);
   const wob=F.phase==='stagger'?Math.sin(A.wob)*u*.02:0;
   const cx=W/2+A.knock*u*.06-lean*u*.05+wob;
-  const cy=H*.34+Math.sin(A.bob)*u*.012+(A.hurt*u*.03);
-  const hu=F.op.hue;
+  const cy=H*.34+Math.sin(A.bob)*u*.012+(A.hurt*u*.03)-A.hurtUp*A.hurt*u*.09; // uppercut launches the head UP
+  const hu=F.mode==='pvp'?'#3ee8ff':F.op.hue;
   ctx.save();
   if(A.hurt>0)ctx.translate((Math.random()-.5)*A.hurt*14,(Math.random()-.5)*A.hurt*7);
   if(A.slump>0){
@@ -432,18 +557,15 @@ function drawOpponent(){
     ctx.translate(cx,cy+u*.3);ctx.rotate(A.slump*.3);ctx.translate(-cx,-(cy+u*.3));
     ctx.globalAlpha=1-A.slump*.6;
   }
-  // torso
   ctx.fillStyle='#1d2445';
   ctx.beginPath();ctx.ellipse(cx,cy+u*.30,u*.16,u*.20,0,0,7);ctx.fill();
   ctx.strokeStyle=hu;ctx.lineWidth=3;ctx.stroke();
-  // head: squash+stretch on hit
   const sq=1+A.hurt*.25,sk=A.knock*A.hurt*u*.03;
   ctx.save();ctx.translate(cx+sk,cy);ctx.scale(2-sq,sq);
   ctx.fillStyle='#e8b98c';
   ctx.beginPath();ctx.arc(0,0,u*.085,0,7);ctx.fill();
   ctx.strokeStyle=hu;ctx.lineWidth=3;ctx.stroke();
   ctx.restore();
-  // head-open glow — the "hit me now" tell (soft, not a UI circle)
   if(HEAD_OPEN()&&F.state==='fight'){
     const p=.5+Math.sin(performance.now()/140)*.5;
     ctx.globalAlpha=.35+p*.3;
@@ -451,7 +573,6 @@ function drawOpponent(){
     ctx.beginPath();ctx.arc(cx,cy,u*.105,0,7);ctx.stroke();
     ctx.globalAlpha=1;
   }
-  // face
   const ko=F.state==='ko',ey=cy-u*.012,eo=u*.032;
   ctx.fillStyle='#0b0e1a';ctx.strokeStyle='#0b0e1a';
   if(ko||F.phase==='stagger'){
@@ -471,7 +592,6 @@ function drawOpponent(){
   if(ko||A.hurt>0||F.phase==='stagger')ctx.arc(cx,cy+u*.045,u*.016,0,7);
   else ctx.arc(cx,cy+u*.052,u*.02,Math.PI*1.12,Math.PI*1.88);
   ctx.stroke();
-  // stagger stars orbiting
   if(F.phase==='stagger'){
     const t=performance.now()/300;
     ctx.font=Math.round(u*.03)+'px serif';ctx.textAlign='center';ctx.fillStyle='#ffb03e';
@@ -484,11 +604,11 @@ function drawOpponent(){
 }
 function glove(gx,gy,side,hu,u){
   const A=F.anim;
-  // guard 1 → at face; 0 → dropped to waist (his head is READABLE as open)
   let x=gx,y=gy+(1-A.guard)*u*.20,r=u*.055;
   if(A.gRattle>0){x+=(Math.random()-.5)*A.gRattle*12;y+=(Math.random()-.5)*A.gRattle*12}
   if(F.phase==='windup'&&F.punchSide===side){
-    const k=1-F.phaseT/(F.op.windup*(F.tut?1.7:1));
+    const wd=F.mode==='pvp'?.5:F.op.windup*(F.tut?1.7:1);
+    const k=1-F.phaseT/wd;
     y+=k*u*.05;r*=1+k*.45;
     ctx.beginPath();ctx.arc(x,y,r+9+Math.sin(performance.now()/60)*3,0,7);
     ctx.strokeStyle='#ffb03e';ctx.lineWidth=5;ctx.stroke();
@@ -497,7 +617,7 @@ function glove(gx,gy,side,hu,u){
     r*=1+A.ext*2.6;
     y+=A.ext*H*.26;
     if(F.dodged)x+=(lean>0?-1:1)*A.ext*W*.3;
-    if(F.blocked)y-=A.ext*H*.08; // bounced off your guard
+    if(F.blocked)y-=A.ext*H*.08;
   }
   ctx.fillStyle=hu;
   ctx.beginPath();ctx.arc(x,y,r,0,7);ctx.fill();
@@ -505,7 +625,6 @@ function glove(gx,gy,side,hu,u){
 }
 function drawPlayerGloves(dt){
   const u=Math.min(W,H);
-  // your shield: visible whenever YOUR guard is up
   if(guardUp&&F.state==='fight'){
     ctx.globalAlpha=.4+Math.sin(performance.now()/160)*.12;
     ctx.strokeStyle='#3ee8ff';ctx.lineWidth=6;
@@ -515,11 +634,12 @@ function drawPlayerGloves(dt){
   for(const k of ['L','R']){
     const h=hands[k];h.anim=Math.max(0,h.anim-dt*4);
     const gx=(1-h.x)*W;
-    const gy=H*(.52+h.y*.42)-h.anim*H*.17;
-    const r=u*.065*(1+h.anim*.75);
+    const gy=H*(.52+h.y*.42)-h.anim*H*(h.upper?.24:.17);
+    const r=u*.065*(1+h.anim*(h.upper?1:.75));
     const col=k==='L'?'#3ee8ff':'#c8ff3e';
     ctx.save();
     ctx.translate(gx-lean*u*.04,gy);
+    if(h.upper&&h.anim>0)ctx.rotate((k==='L'?-1:1)*h.anim*.5); // uppercut arc
     ctx.fillStyle=col;
     ctx.beginPath();ctx.arc(0,0,r,0,7);ctx.fill();
     ctx.fillStyle='rgba(11,14,26,.35)';
@@ -546,8 +666,222 @@ function drawDodgeCue(){
   ctx.fillText('🛡 FISTS UP — OR LEAN!',W/2,H*.62);
 }
 
+/* ---- multiplayer (supabase realtime + webrtc, same stack as cardio.surf) ---- */
+const SBK='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRwZHJsbW5vZm5oemt0a2JldnVnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxMDExNTksImV4cCI6MjA4NzY3NzE1OX0.2AW07k706Fmzfm5kLSfeMwfigDXxXF1022-4cHCl_W8';
+const sbc=createClient('https://dpdrlmnofnhzktkbevug.supabase.co',SBK);
+const VS={on:false,chan:null,lobby:null,me:'',oppKey:'',oppName:'RIVAL',oppGuard:true,
+  int:null,roomTimer:null,shareCam:true,shareMic:true,vSend:null,aSend:null,
+  remMe:false,remOpp:false};
+try{VS.shareCam=localStorage.getItem('bx_shcam')!=='0';
+    VS.shareMic=localStorage.getItem('bx_shmic')!=='0'}catch(e){}
+let playerName='FIGHTER';
+function grabName(){const v=$('playerName').value.trim().toUpperCase();if(v)playerName=v;
+  try{localStorage.setItem('bx_name',playerName)}catch(e){}}
+try{const n=localStorage.getItem('bx_name');if(n)$('playerName').value=n}catch(e){}
+function privLabels(){
+  $('tglCam').textContent=VS.shareCam?'📷 CAM: SHOWN':'📷 CAM: HIDDEN';
+  $('tglMic').textContent=VS.shareMic?'🎤 MIC: ON':'🎤 MIC: OFF';
+}
+privLabels();
+$('tglCam').onclick=()=>{VS.shareCam=!VS.shareCam;
+  try{localStorage.setItem('bx_shcam',VS.shareCam?'1':'0')}catch(e){}
+  privLabels();
+  if(VS.vSend){const vt=video.srcObject&&video.srcObject.getVideoTracks()[0];
+    VS.vSend.replaceTrack(VS.shareCam?(vt||null):null).catch(()=>{})}};
+$('tglMic').onclick=()=>{VS.shareMic=!VS.shareMic;
+  try{localStorage.setItem('bx_shmic',VS.shareMic?'1':'0')}catch(e){}
+  privLabels();
+  if(VS.aSend)VS.aSend.replaceTrack(VS.shareMic?(micTrack||null):null).catch(()=>{})};
+
+function vsEnterLobby(){
+  if(VS.lobby){sbc.removeChannel(VS.lobby);VS.lobby=null}
+  $('vsStatus').textContent='SEARCHING FOR OPPONENT…';
+  $('vsSpin').classList.remove('hidden');
+  $('vsOv').classList.remove('hidden');
+  VS.me=String(Date.now())+'-'+Math.floor(Math.random()*1e6);
+  VS.lobby=sbc.channel('cardio-box-lobby',{config:{presence:{key:VS.me}}});
+  VS.lobby.on('presence',{event:'sync'},()=>{
+    const st=VS.lobby.presenceState();
+    const keys=Object.keys(st).sort();
+    if(keys.length>=2){
+      const pair=keys.slice(0,2);
+      if(pair.includes(VS.me)){
+        VS.oppKey=pair[0]===VS.me?pair[1]:pair[0];
+        const meta=(st[VS.oppKey]&&st[VS.oppKey][0])||{};
+        vsJoinRoom(pair.join('~'),meta.name||'RIVAL',pair[0]===VS.me);
+      }
+    }
+  });
+  VS.lobby.subscribe(s=>{if(s==='SUBSCRIBED')VS.lobby.track({name:playerName})});
+}
+function vsJoinRoom(roomId,oppName,isHost){
+  if(VS.chan)return;
+  VS.oppName=oppName;VS.host=isHost;VS.paired=false;
+  $('vsStatus').textContent='FOUND '+oppName+'! CONNECTING…';
+  VS.chan=sbc.channel('cardio-box-'+roomId,{config:{presence:{key:VS.me}}});
+  VS.chan.on('broadcast',{event:'state'},({payload:p})=>{
+    if(!p||p.from!==VS.oppKey)return;
+    VS.oppGuard=!!p.g;
+    if(typeof p.hp==='number'){bars.op.v=Math.max(0,p.hp)}
+  });
+  VS.chan.on('broadcast',{event:'swing'},({payload:p})=>{
+    if(!p||p.from!==VS.oppKey||F.state!=='fight')return;
+    F.pvpType=p.t==='upper'?'upper':'jab';
+    F.punchSide=Math.random()<.5?'L':'R';
+    F.phase='windup';F.phaseT=.5;SFX.swish();
+  });
+  VS.chan.on('broadcast',{event:'res'},({payload:p})=>{
+    if(!p||p.from!==VS.oppKey)return;
+    const u=Math.min(W,H),hx=W/2;
+    if(p.r==='hit'){landOnOpponent(hx,p.d||12,{upper:!!p.u});
+      if(typeof p.hp==='number')bars.op.v=Math.max(0,p.hp);
+      F.phase='hurt';F.phaseT=.42;}
+    else if(p.r==='block')blockedOnOpponent(hx);
+    else if(p.r==='dodge'){pop(hx,H*.3,'MISSED! 💨','#8892b8');SFX.swish()}
+  });
+  VS.chan.on('broadcast',{event:'ko'},({payload:p})=>{
+    if(!p||p.from!==VS.oppKey)return;
+    koOpponent();
+  });
+  VS.chan.on('broadcast',{event:'rem'},({payload:p})=>{
+    if(!p||p.from!==VS.oppKey)return;
+    VS.remOpp=true;banner(VS.oppName+' WANTS A REMATCH','#3ee8ff');
+    if(VS.remMe)vsStartMatch();
+  });
+  VS.chan.on('broadcast',{event:'rtc'},({payload:p})=>vsRtcMsg(p));
+  VS.chan.on('presence',{event:'leave'},()=>{
+    banner(VS.oppName+' LEFT','#ff3ea5');
+    vsCleanup();
+    $('endOv').classList.add('hidden');
+    $('startOv').classList.remove('hidden');
+  });
+  VS.chan.on('presence',{event:'sync'},()=>{
+    if(Object.keys(VS.chan.presenceState()).length>=2&&!VS.paired){
+      VS.paired=true;
+      if(VS.roomTimer){clearTimeout(VS.roomTimer);VS.roomTimer=null}
+      if(VS.lobby){sbc.removeChannel(VS.lobby);VS.lobby=null}
+      vsStartRtc();
+      vsStartMatch();
+    }
+  });
+  VS.chan.subscribe(s=>{if(s==='SUBSCRIBED')VS.chan.track({name:playerName})});
+  VS.roomTimer=setTimeout(()=>{
+    if(!VS.paired&&VS.on){
+      if(VS.chan){sbc.removeChannel(VS.chan);VS.chan=null}
+      vsStopRtc();
+      $('vsStatus').textContent='OPPONENT UNRESPONSIVE — SEARCHING AGAIN…';
+      vsEnterLobby();
+    }
+  },10000);
+}
+function vsStartMatch(){
+  VS.remMe=false;VS.remOpp=false;
+  $('vsOv').classList.add('hidden');$('endOv').classList.add('hidden');
+  $('btnRematch').classList.add('hidden');
+  F.mode='pvp';F.state='fight';F.phase='guard';F.phaseT=999;F.combo=0;
+  F.op=null;F.pvpType='jab';
+  Object.assign(F.anim,{guard:1,ext:0,hurt:0,hurtUp:0,slump:0,knock:0,gRattle:0,wob:0});
+  bars.me.v=100;bars.me.g=100;bars.op.max=100;bars.op.v=100;bars.op.g=100;
+  F.kos=0;F.landed=0;F.thrown=0;F.dodges=0;F.blocks=0;
+  $('nameOp').textContent=VS.oppName;
+  $('roundTag').textContent='⚔️ PVP';
+  banner('🔔 FIGHT '+VS.oppName+'!','#c8ff3e');SFX.bell();
+  if(VS.int)clearInterval(VS.int);
+  VS.int=setInterval(()=>{try{VS.chan&&VS.chan.send({type:'broadcast',event:'state',
+    payload:{g:guardUp,hp:bars.me.v,from:VS.me}})}catch(e){}},250);
+}
+/* webrtc video+voice */
+let pc=null,pendIce=[];
+async function vsStartRtc(){
+  try{
+    if(pc||!VS.chan)return;
+    pc=new RTCPeerConnection({iceServers:[{urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302']}]});
+    const st=video.srcObject;
+    const vt=st&&st.getVideoTracks()[0];
+    VS.vSend=pc.addTransceiver('video',{direction:'sendrecv'}).sender;
+    if(vt&&VS.shareCam)VS.vSend.replaceTrack(vt).catch(()=>{});
+    VS.aSend=pc.addTransceiver('audio',{direction:'sendrecv'}).sender;
+    if(micTrack&&VS.shareMic)VS.aSend.replaceTrack(micTrack).catch(()=>{});
+    pc.ontrack=e=>{
+      const v=$('oppVid');
+      if(!v.srcObject)v.srcObject=(e.streams&&e.streams[0])||new MediaStream();
+      if(!e.streams||!e.streams.length)v.srcObject.addTrack(e.track);
+    };
+    pc.onconnectionstatechange=()=>{
+      if(!pc)return;
+      if(pc.connectionState==='connected'){
+        const v=$('oppVid');
+        $('oppTag').textContent=VS.oppName;
+        $('oppCam').classList.remove('hidden');
+        v.play().catch(()=>{v.muted=true;$('oppMute').textContent='🔇';v.play().catch(()=>{})});
+      }else if(pc.connectionState==='failed')vsStopRtc();
+    };
+    pc.onicecandidate=e=>{if(e.candidate)try{
+      VS.chan.send({type:'broadcast',event:'rtc',payload:{ice:e.candidate.toJSON(),from:VS.me}})}catch(x){}};
+    try{const par=VS.vSend.getParameters();
+      par.encodings=(par.encodings&&par.encodings.length?par.encodings:[{}]);
+      par.encodings[0].maxBitrate=300000;par.encodings[0].scaleResolutionDownBy=1.5;
+      VS.vSend.setParameters(par).catch(()=>{});}catch(e){}
+    if(VS.host){
+      const o=await pc.createOffer();await pc.setLocalDescription(o);
+      try{VS.chan.send({type:'broadcast',event:'rtc',payload:{sdp:pc.localDescription.toJSON(),from:VS.me}})}catch(x){}
+    }
+  }catch(e){}
+}
+async function vsRtcMsg(p){
+  try{
+    if(!p||p.from!==VS.oppKey)return;
+    if(!pc)await vsStartRtc();
+    if(!pc)return;
+    if(p.sdp){
+      if(p.sdp.type==='answer'&&pc.signalingState!=='have-local-offer')return;
+      await pc.setRemoteDescription(p.sdp);
+      for(const c of pendIce){try{await pc.addIceCandidate(c)}catch(e){}}
+      pendIce=[];
+      if(p.sdp.type==='offer'){
+        const a=await pc.createAnswer();await pc.setLocalDescription(a);
+        try{VS.chan.send({type:'broadcast',event:'rtc',payload:{sdp:pc.localDescription.toJSON(),from:VS.me}})}catch(x){}
+      }
+    }else if(p.ice){
+      if(pc.remoteDescription){try{await pc.addIceCandidate(p.ice)}catch(e){}}
+      else pendIce.push(p.ice);
+    }
+  }catch(e){}
+}
+function vsStopRtc(){
+  if(pc){try{pc.close()}catch(e){}pc=null}
+  pendIce=[];VS.vSend=null;VS.aSend=null;
+  const v=$('oppVid');v.srcObject=null;v.muted=false;
+  $('oppMute').textContent='🔊';
+  $('oppCam').classList.add('hidden');
+}
+$('oppMute').onclick=()=>{
+  const v=$('oppVid');v.muted=!v.muted;
+  $('oppMute').textContent=v.muted?'🔇':'🔊';
+  v.play().catch(()=>{});
+};
+function vsCleanup(){
+  if(VS.int){clearInterval(VS.int);VS.int=null}
+  if(VS.roomTimer){clearTimeout(VS.roomTimer);VS.roomTimer=null}
+  if(VS.chan){sbc.removeChannel(VS.chan);VS.chan=null}
+  if(VS.lobby){sbc.removeChannel(VS.lobby);VS.lobby=null}
+  VS.on=false;VS.paired=false;VS.remMe=false;VS.remOpp=false;
+  vsStopRtc();
+  $('vsOv').classList.add('hidden');
+  F.mode='solo';F.state='idle';
+}
+$('btnVsCancel').onclick=()=>{vsCleanup();$('startOv').classList.remove('hidden')};
+$('btnRematch').onclick=()=>{
+  VS.remMe=true;
+  $('btnRematch').textContent='⏳ WAITING…';$('btnRematch').disabled=true;
+  try{VS.chan&&VS.chan.send({type:'broadcast',event:'rem',payload:{from:VS.me}})}catch(e){}
+  if(VS.remOpp){$('btnRematch').disabled=false;$('btnRematch').textContent='🔁 REMATCH';vsStartMatch()}
+};
+
 /* ---- loop ---- */
-let lastF=0,alive=false;
+let lastF=0,alive=false,banT=null;
+function banner(t,col){const b=$('banner');b.textContent=t;b.style.color=col;b.style.opacity=1;
+  clearTimeout(banT);banT=setTimeout(()=>b.style.opacity=0,1100)}
 function loop(now){
   if(!alive)return;
   let dt=Math.min(.05,(now-lastF)/1000)||.016;lastF=now;
@@ -562,32 +896,44 @@ function loop(now){
     ctx.translate((Math.random()-.5)*FX.shake*24,(Math.random()-.5)*FX.shake*24)}
   ctx.strokeStyle='rgba(62,232,255,.14)';ctx.lineWidth=3;
   for(let i=0;i<3;i++){ctx.beginPath();ctx.moveTo(0,H*.62+i*34);ctx.lineTo(W,H*.62+i*34);ctx.stroke()}
-  if(F.op){think(dt);drawOpponent();drawDodgeCue()}
+  if(F.op||F.mode==='pvp'){think(dt);drawOpponent();drawDodgeCue()}
   if(F.state==='fight'||F.state==='ko')drawPlayerGloves(rdt);
   drawFx(rdt);
   ctx.restore();
   drawBars(rdt);
   requestAnimationFrame(loop);
 }
-let banT=null;
-function banner(t,col){const b=$('banner');b.textContent=t;b.style.color=col;b.style.opacity=1;
-  clearTimeout(banT);banT=setTimeout(()=>b.style.opacity=0,1100)}
-
-$('btnStart').onclick=async()=>{
+async function beginCalibrated(cb){
   try{
+    grabName();
     if(!landmarker)await initCamera();
     alive=true;poseLoop();lastF=performance.now();requestAnimationFrame(loop);
-    F.kos=0;F.landed=0;F.thrown=0;F.dodges=0;F.blocks=0;bars.me.v=100;bars.me.g=100;
-    cal.samples=[];cal.done=false;cal.active=true;
+    cal.samples=0;cal.done=false;cal.active=true;cal.started=performance.now();cal.cb=cb;
     $('calFill').style.width='0%';
     $('startOv').classList.add('hidden');
     $('camwrap').classList.add('big');
     $('calOv').classList.remove('hidden');
+    return true;
   }catch(e){
     $('startStatus').textContent='Camera failed ('+e.message+'). Use Safari/Chrome, allow camera.';
+    return false;
   }
+}
+$('btnStart').onclick=()=>{
+  beginCalibrated(()=>{
+    F.kos=0;F.landed=0;F.thrown=0;F.dodges=0;F.blocks=0;bars.me.v=100;bars.me.g=100;
+    startFight(0);
+  });
 };
-$('btnAgain').onclick=()=>{F.kos=0;F.landed=0;F.thrown=0;F.dodges=0;F.blocks=0;bars.me.v=100;bars.me.g=100;startFight(0)};
+$('btnVs').onclick=()=>{
+  beginCalibrated(()=>{VS.on=true;vsEnterLobby()});
+};
+$('btnAgain').onclick=()=>{
+  vsCleanup();
+  F.kos=0;F.landed=0;F.thrown=0;F.dodges=0;F.blocks=0;bars.me.v=100;bars.me.g=100;
+  $('endOv').classList.add('hidden');
+  startFight(0);
+};
 alive=true;requestAnimationFrame(loop);
 if(location.search.includes('demo')){$('startOv').classList.add('hidden');startFight(0)}
 </script>
