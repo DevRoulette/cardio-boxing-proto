@@ -9,7 +9,7 @@
   :root{--ink:#0b0e1a;--tunnel:#141a30;--cyan:#3ee8ff;--magenta:#ff3ea5;--lime:#c8ff3e;--paper:#f2f4ff}
   *{margin:0;padding:0;box-sizing:border-box;touch-action:manipulation}
   html,body{height:100%;overflow:hidden;background:var(--ink);color:var(--paper);font-family:'Space Grotesk',sans-serif}
-  #ring{position:fixed;inset:0;display:block}
+  #ring{position:fixed;inset:0;width:100%;height:100%;display:block}
   #bars{position:fixed;top:12px;left:12px;right:12px;display:flex;gap:14px;z-index:5;pointer-events:none}
   .hpwrap{flex:1}
   .hpname{font-family:'Bungee',cursive;font-size:13px;margin-bottom:3px}
@@ -277,12 +277,15 @@ const rng=([a,b])=>a+Math.random()*(b-a);
 
 function drawOpponent(){
   const A=F.anim,u=Math.min(W,H);
-  const cx=W/2,slump=A.slump*H*.35;
-  const cy=H*.34+Math.sin(A.bob)*u*.012+(A.hurt*u*.02)+slump;
+  const cx=W/2;
+  const cy=H*.34+Math.sin(A.bob)*u*.012+(A.hurt*u*.02);
   const hu=F.op?F.op.hue:'#ff3ea5';
   ctx.save();
   if(A.hurt>0)ctx.translate((Math.random()-.5)*A.hurt*10,0);
-  if(A.slump>0){ctx.translate(cx,cy);ctx.rotate(A.slump*.9);ctx.translate(-cx,-cy);ctx.globalAlpha=1-A.slump*.5}
+  if(A.slump>0){ // KO: drop straight down through the floor, slight tilt, fade
+    ctx.translate(0,A.slump*A.slump*H*.55);
+    ctx.translate(cx,cy+u*.3);ctx.rotate(A.slump*.3);ctx.translate(-cx,-(cy+u*.3));
+    ctx.globalAlpha=1-A.slump*.6}
   // torso
   ctx.fillStyle='#1d2445';
   ctx.beginPath();ctx.ellipse(cx,cy+u*.30,u*.16,u*.20,0,0,7);ctx.fill();
