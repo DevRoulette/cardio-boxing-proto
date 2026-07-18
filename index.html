@@ -35,10 +35,10 @@
   button:active{transform:translateY(4px);box-shadow:0 2px 0 #7da317}
   .status{font-size:15px;color:var(--cyan);min-height:22px}
   .hidden{display:none !important}
-  #banner{position:fixed;top:20%;left:50%;transform:translate(-50%,-50%);font-family:'Bungee',cursive;
-    font-size:clamp(26px,8vw,56px);color:var(--magenta);text-shadow:0 0 30px rgba(255,62,165,.8);
+  #banner{position:fixed;top:18%;left:50%;transform:translate(-50%,-50%);font-family:'Bungee',cursive;
+    font-size:clamp(24px,7vw,50px);color:var(--magenta);text-shadow:0 0 30px rgba(255,62,165,.8);
     z-index:6;opacity:0;pointer-events:none;transition:opacity .15s;white-space:nowrap}
-  #flash{position:fixed;inset:0;pointer-events:none;z-index:7;opacity:0;background:rgba(255,62,165,.3);transition:opacity .1s}
+  #flash{position:fixed;inset:0;pointer-events:none;z-index:7;opacity:0;background:radial-gradient(ellipse at center,transparent 30%,rgba(255,30,60,.55));transition:opacity .12s}
 </style>
 </head>
 <body>
@@ -56,10 +56,9 @@
   <h1><span class="c">CARDIO</span><span class="m">BOXING</span></h1>
   <p>A real fight, your body is the controller. Stand ~1.5 m back, chest and fists visible.</p>
   <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
-    <div class="ctl"><b>🥊 ATTACK</b>When his guard drops, a target flashes — punch it with that hand before it closes</div>
-    <div class="ctl"><b>🙆 DODGE</b>When his glove glows and swells, he's swinging — lean your body LEFT or RIGHT to slip it</div>
+    <div class="ctl"><b>🥊 ATTACK</b>When a green target flashes on him, punch it — LEFT hand or RIGHT hand as marked</div>
+    <div class="ctl"><b>🙆 DODGE</b>When you see ⬅ DODGE ➡, lean your whole body to a side to slip his punch</div>
   </div>
-  <p style="font-size:14px">Knock him out before he knocks you out. Each KO brings a bigger, faster opponent.</p>
   <button id="btnStart">🔔 FIGHT</button>
   <div class="status" id="startStatus"></div>
   <div style="font-size:13px;color:#6f7aa6">Prototype — nothing uploaded, camera stays on this device.</div>
@@ -91,11 +90,11 @@ function tone(f,type,a,d,peak,slide){const c=ac(),t0=c.currentTime,o=c.createOsc
   g.gain.exponentialRampToValueAtTime(.001,t0+a+d);
   o.connect(g).connect(c.destination);o.start(t0);o.stop(t0+a+d+.05)}
 const SFX={
-  land(){tone(150,'square',.005,.1,.28,70);tone(800,'square',.005,.05,.1)},
-  crit(){tone(180,'square',.005,.12,.3,60);tone(1319,'square',.01,.1,.15)},
-  hurt(){tone(120,'sawtooth',.01,.25,.25,55)},
-  swish(){tone(700,'sawtooth',.01,.14,.08,180)},
-  dodge(){tone(988,'square',.01,.07,.12);tone(1319,'square',.06,.08,.12)},
+  land(){tone(150,'square',.005,.1,.3,70);tone(800,'square',.005,.05,.12)},
+  crit(){tone(180,'square',.005,.12,.32,60);tone(1319,'square',.01,.1,.15)},
+  hurt(){tone(120,'sawtooth',.01,.25,.28,55)},
+  swish(){tone(700,'sawtooth',.01,.14,.09,180)},
+  dodge(){tone(988,'square',.01,.07,.13);tone(1319,'square',.06,.08,.13)},
   bell(){[880,880].forEach((f,i)=>setTimeout(()=>tone(f,'triangle',.01,.5,.25),i*350))},
   ko(){[392,330,262,196].forEach((f,i)=>setTimeout(()=>tone(f,'triangle',.02,.25,.22),i*150))},
   win(){[523,659,784,1047].forEach((f,i)=>setTimeout(()=>tone(f,'square',.01,.15,.15),i*100))}
@@ -119,10 +118,10 @@ async function initCamera(){
   $('camwrap').classList.remove('hidden');
 }
 
-/* ---- player input: punches + lean ---- */
+/* ---- player input: punches + lean; wrists mirrored to screen for your gloves ---- */
 const hands={
-  L:{lm:15,sh:11,x:0,y:0,px:0,py:0,speed:0,ext:0,pext:0,cool:0},
-  R:{lm:16,sh:12,x:0,y:0,px:0,py:0,speed:0,ext:0,pext:0,cool:0}
+  L:{lm:15,sh:11,x:.35,y:.7,px:0,py:0,speed:0,ext:0,pext:0,cool:0,anim:0,seen:false},
+  R:{lm:16,sh:12,x:.65,y:.7,px:0,py:0,speed:0,ext:0,pext:0,cool:0,anim:0,seen:false}
 };
 let shoulderW=.2,lean=0,leanBase=null,lastPose=0;
 
@@ -136,44 +135,76 @@ function poseLoop(){
     const lm=res.landmarks[0];
     const dt=Math.min(.1,(now-lastPose)/1000)||.033;lastPose=now;
     shoulderW=Math.max(.08,Math.abs(lm[11].x-lm[12].x));
-    // lean: shoulder midpoint vs slow-follow baseline, mirrored so leaning left = negative
     const mid=1-((lm[11].x+lm[12].x)/2);
     if(leanBase==null)leanBase=mid;
-    leanBase+=(mid-leanBase)*Math.min(1,dt*.35);   // very slow drift — a held lean still counts
+    leanBase+=(mid-leanBase)*Math.min(1,dt*.35);
     lean=(mid-leanBase)/shoulderW;
     for(const k of ['L','R']){
       const h=hands[k],w=lm[h.lm],s=lm[h.sh];
-      h.px=h.x;h.py=h.y;h.x=w.x;h.y=w.y;
+      h.px=h.x;h.py=h.y;h.x=w.x;h.y=w.y;h.seen=true;
       const d=Math.hypot(h.x-h.px,h.y-h.py);
       h.speed=h.speed*.4+(d/dt)*.6;
       h.pext=h.ext;h.ext=Math.hypot(w.x-s.x,w.y-s.y)/shoulderW;
       h.cool=Math.max(0,h.cool-dt);
-      if(F.state==='fight'&&h.cool<=0&&h.speed>1.6&&h.ext>1.05&&h.ext>h.pext+.04){
-        h.cool=.38;playerPunch(k);
+      if(F.state==='fight'&&h.cool<=0&&h.speed>1.5&&h.ext>1.0&&h.ext>h.pext+.035){
+        h.cool=.36;h.anim=1;playerPunch(k);
       }
-      sctx.fillStyle=k==='L'?'#3ee8ff':'#ff3ea5';
+      sctx.fillStyle=k==='L'?'#3ee8ff':'#c8ff3e';
       sctx.beginPath();sctx.arc(w.x*skel.width,w.y*skel.height,6,0,7);sctx.fill();
     }
   }
   requestAnimationFrame(poseLoop);
 }
 
-/* ---- fight state ---- */
+/* ---- juice: hit-stop, shake, particles, damage pops ---- */
+const FX={stop:0,shake:0,parts:[],pops:[]};
+function addShake(a){FX.shake=Math.max(FX.shake,a)}
+function hitStop(t){FX.stop=Math.max(FX.stop,t)}
+function burst(x,y,col,n=14,pow=1){
+  for(let i=0;i<n;i++){const a=Math.random()*Math.PI*2,v=(120+Math.random()*260)*pow;
+    FX.parts.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v-80,life:.45+Math.random()*.25,t:0,col,
+      r:3+Math.random()*4,star:Math.random()<.3})}
+}
+function pop(x,y,txt,col,big){FX.pops.push({x,y,txt,col,t:0,life:.8,big})}
+function drawFx(dt){
+  for(const p of FX.parts){p.t+=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=700*dt}
+  FX.parts=FX.parts.filter(p=>p.t<p.life);
+  for(const p of FX.parts){
+    ctx.globalAlpha=1-p.t/p.life;ctx.fillStyle=p.col;
+    if(p.star){ctx.font=(p.r*4)+'px serif';ctx.textAlign='center';ctx.fillText('✦',p.x,p.y)}
+    else{ctx.beginPath();ctx.arc(p.x,p.y,p.r*(1-p.t/p.life*.5),0,7);ctx.fill()}
+  }
+  ctx.globalAlpha=1;
+  for(const p of FX.pops){p.t+=dt;p.y-=40*dt}
+  FX.pops=FX.pops.filter(p=>p.t<p.life);
+  for(const p of FX.pops){
+    ctx.globalAlpha=Math.min(1,2-2*p.t/p.life);
+    ctx.font='bold '+(p.big?46:30)+'px Bungee, sans-serif';ctx.textAlign='center';
+    ctx.fillStyle=p.col;ctx.strokeStyle='rgba(11,14,26,.8)';ctx.lineWidth=5;
+    ctx.strokeText(p.txt,p.x,p.y);ctx.fillText(p.txt,p.x,p.y);
+  }
+  ctx.globalAlpha=1;
+}
+
+/* ---- fight ---- */
 const OPPONENTS=[
-  {name:'BRUTUS',hue:'#ff3ea5',hp:60, openEvery:[1.4,2.2],openDur:1.5,windup:.85,dmg:12},
-  {name:'IRONJAW',hue:'#ffb03e',hp:80, openEvery:[1.2,2.0],openDur:1.25,windup:.7,dmg:15},
-  {name:'COBRA',hue:'#3ee8ff', hp:100,openEvery:[1.0,1.7],openDur:1.05,windup:.6,dmg:18},
-  {name:'THE WALL',hue:'#c8ff3e',hp:130,openEvery:[.9,1.5],openDur:.9,windup:.5,dmg:22}
+  {name:'BRUTUS',hue:'#ff3ea5',hp:60, openEvery:[1.4,2.2],openDur:1.6,windup:1.15,dmg:12},
+  {name:'IRONJAW',hue:'#ffb03e',hp:80, openEvery:[1.2,2.0],openDur:1.3,windup:.9,dmg:15},
+  {name:'COBRA',hue:'#3ee8ff', hp:100,openEvery:[1.0,1.7],openDur:1.1,windup:.72,dmg:18},
+  {name:'THE WALL',hue:'#c8ff3e',hp:130,openEvery:[.9,1.5],openDur:.95,windup:.6,dmg:22}
 ];
 const F={state:'idle',lvl:0,op:null,opHP:0,myHP:100,phase:'guard',phaseT:0,
-  opening:null,punchSide:null,anim:{gL:1,gR:1,ext:0,extSide:'L',hurt:0,bob:0,slump:0},
-  kos:0,landed:0,thrown:0,dodges:0,eaten:0};
+  opening:null,punchSide:null,dodged:false,
+  anim:{gL:1,gR:1,ext:0,extSide:'L',hurt:0,bob:0,slump:0,knock:0},
+  kos:0,landed:0,thrown:0,dodges:0,eaten:0,tut:0,tutT:0};
+const rng=([a,b])=>a+Math.random()*(b-a);
 
 function startFight(lvl){
   F.lvl=lvl;F.op=OPPONENTS[Math.min(lvl,OPPONENTS.length-1)];
-  F.opHP=F.op.hp;F.myHP=(lvl===0?100:Math.min(100,F.myHP+25)); // heal a bit between rounds
-  F.state='fight';F.phase='guard';F.phaseT=1.2;F.opening=null;F.punchSide=null;
-  Object.assign(F.anim,{gL:1,gR:1,ext:0,hurt:0,slump:0});
+  F.opHP=F.op.hp;F.myHP=(lvl===0?100:Math.min(100,F.myHP+25));
+  F.state='fight';F.phase='guard';F.phaseT=lvl===0?2.5:1.2;F.opening=null;F.punchSide=null;
+  Object.assign(F.anim,{gL:1,gR:1,ext:0,hurt:0,slump:0,knock:0});
+  F.tut=lvl===0?1:0;F.tutT=0;
   $('nameOp').textContent=F.op.name+' · LV '+(lvl+1);
   $('roundTag').textContent='ROUND '+(lvl+1);
   updateBars();
@@ -184,10 +215,10 @@ function updateBars(){
   $('hpMe').firstElementChild.style.width=Math.max(0,F.myHP)+'%';
   $('hpOp').firstElementChild.style.width=Math.max(0,F.opHP/F.op.hp*100)+'%';
 }
-const ZONES={ // where you must punch, in screen space (drawn on the opponent)
-  headL:()=>({x:W/2-W*.11,y:H*.30,r:Math.min(W,H)*.07,hand:'R'}), // his head-left = your RIGHT cross
+const ZONES={
+  headL:()=>({x:W/2-W*.11,y:H*.30,r:Math.min(W,H)*.07,hand:'R'}),
   headR:()=>({x:W/2+W*.11,y:H*.30,r:Math.min(W,H)*.07,hand:'L'}),
-  body:()=>({x:W/2,y:H*.52,r:Math.min(W,H)*.085,hand:null})       // body: either hand
+  body:()=>({x:W/2,y:H*.52,r:Math.min(W,H)*.085,hand:null})
 };
 function playerPunch(hand){
   F.thrown++;
@@ -197,26 +228,34 @@ function playerPunch(hand){
       const early=F.phaseT>((F.op.openDur)*.45);
       const dmg=(early?14:9)+(F.opening==='body'?2:0);
       F.opHP-=dmg;F.landed++;
-      F.opening=null;F.phase='hurt';F.phaseT=.5;F.anim.hurt=1;
-      banner(early?'CLEAN HIT! -'+dmg:'HIT -'+dmg,early?'#c8ff3e':'#3ee8ff');
+      F.opening=null;F.phase='hurt';F.phaseT=.55;F.anim.hurt=1;
+      F.anim.knock=(z.x<W/2?-1:z.x>W/2?1:0); // head snaps away from the blow
+      hitStop(.085);addShake(early?.8:.5);
+      burst(z.x,z.y,early?'#c8ff3e':'#3ee8ff',early?20:13,early?1.3:1);
+      pop(z.x,z.y-z.r-8,'-'+dmg,early?'#c8ff3e':'#3ee8ff',early);
+      if(early)pop(W/2,H*.16,'CLEAN HIT!','#c8ff3e',true);
       early?SFX.crit():SFX.land();
-      if(navigator.vibrate)navigator.vibrate(early?70:40);
+      if(navigator.vibrate)navigator.vibrate(early?80:45);
       updateBars();
       if(F.opHP<=0)return koOpponent();
       return;
     }
   }
-  SFX.swish(); // swing at nothing / wrong hand
+  SFX.swish();
 }
 function koOpponent(){
-  F.kos++;F.state='ko';F.phaseT=2.2;F.anim.slump=0;
-  banner('💥 KO! '+F.op.name+' IS DOWN','#c8ff3e');SFX.win();
+  F.kos++;F.state='ko';F.phaseT=2.4;F.anim.slump=0;
+  hitStop(.14);addShake(1.2);
+  burst(W/2,H*.3,'#c8ff3e',30,1.8);burst(W/2,H*.3,'#ffb03e',20,1.4);
+  banner('💥 K.O.!','#c8ff3e');SFX.win();
 }
 function playerHit(){
   F.myHP-=F.op.dmg;F.eaten++;updateBars();
-  $('flash').style.opacity=1;setTimeout(()=>$('flash').style.opacity=0,140);
-  banner('-'+F.op.dmg+' 🥴','#ff3ea5');SFX.hurt();
-  if(navigator.vibrate)navigator.vibrate(140);
+  hitStop(.07);addShake(1);
+  $('flash').style.opacity=1;setTimeout(()=>$('flash').style.opacity=0,180);
+  pop(W/2,H*.62,'-'+F.op.dmg,'#ff3ea5',true);
+  banner('YOU GOT TAGGED 🥴','#ff3ea5');SFX.hurt();
+  if(navigator.vibrate)navigator.vibrate(160);
   if(F.myHP<=0){
     F.state='over';SFX.ko();
     $('endTitle').innerHTML='<span class="m">KNOCKED</span> OUT';
@@ -230,40 +269,44 @@ function endLine(){
     +F.landed+'</b> ('+acc+'%) · Dodged <b style="color:var(--magenta)">'+F.dodges+'</b>';
 }
 
-/* ---- opponent brain + animation + draw ---- */
+/* ---- opponent brain ---- */
 function think(dt){
   const A=F.anim;
-  A.bob+=dt*3.1;A.hurt=Math.max(0,A.hurt-dt*2.4);
+  A.bob+=dt*3.1;A.hurt=Math.max(0,A.hurt-dt*2.2);A.knock*=Math.max(0,1-dt*5);
   if(F.state==='ko'){
-    A.slump=Math.min(1,A.slump+dt*.9);
+    A.slump=Math.min(1,A.slump+dt*.85);
     F.phaseT-=dt;
     if(F.phaseT<=0)startFight(F.lvl+1);
     return;
   }
   if(F.state!=='fight')return;
   F.phaseT-=dt;
-  const gTargetL=(F.opening==='headR'||(F.phase==='windup'&&F.punchSide==='L')||(F.phase==='punch'&&F.punchSide==='L'))?0:1;
-  const gTargetR=(F.opening==='headL'||(F.phase==='windup'&&F.punchSide==='R')||(F.phase==='punch'&&F.punchSide==='R'))?0:1;
+  const gTargetL=(F.opening==='headR'||((F.phase==='windup'||F.phase==='punch')&&F.punchSide==='L'))?0:1;
+  const gTargetR=(F.opening==='headL'||((F.phase==='windup'||F.phase==='punch')&&F.punchSide==='R'))?0:1;
   A.gL+=(gTargetL-A.gL)*Math.min(1,dt*8);
   A.gR+=(gTargetR-A.gR)*Math.min(1,dt*8);
   if(F.phase==='guard'&&F.phaseT<=0){
-    if(Math.random()<.55){ // drop guard → your chance
+    if(F.tut===1){F.opening='headL';F.phase='open';F.phaseT=3.2;F.tut=2} // tutorial: guaranteed first target, long window
+    else if(F.tut===2){F.punchSide=Math.random()<.5?'L':'R';F.phase='windup';F.phaseT=F.op.windup*1.8;F.tut=0;SFX.swish()} // tutorial: slow first jab
+    else if(Math.random()<.55){
       F.opening=['headL','headR','body'][Math.floor(Math.random()*3)];
       F.phase='open';F.phaseT=F.op.openDur;
-    }else{ // he attacks
+    }else{
       F.punchSide=Math.random()<.5?'L':'R';
       F.phase='windup';F.phaseT=F.op.windup;SFX.swish();
     }
   }else if(F.phase==='open'&&F.phaseT<=0){
     F.opening=null;F.phase='guard';F.phaseT=rng(F.op.openEvery);
   }else if(F.phase==='windup'&&F.phaseT<=0){
-    F.phase='punch';F.phaseT=.30;
+    F.phase='punch';F.phaseT=.32;F.dodged=false;
   }else if(F.phase==='punch'){
-    A.ext=1-F.phaseT/.30;A.extSide=F.punchSide;
+    A.ext=1-F.phaseT/.32;A.extSide=F.punchSide;
+    if(!F.dodged&&Math.abs(lean)>.42&&A.ext>.25){ // slip registered mid-swing
+      F.dodged=true;F.dodges++;
+      pop(W/2+(lean>0?1:-1)*W*.18,H*.55,'SLIPPED! 😮‍💨','#3ee8ff',true);SFX.dodge();
+    }
     if(F.phaseT<=0){
-      // impact: dodged if leaning hard either way
-      if(Math.abs(lean)>.55){F.dodges++;banner('SLIPPED IT! 😮‍💨','#3ee8ff');SFX.dodge()}
-      else playerHit();
+      if(!F.dodged)playerHit();
       F.phase='recover';F.phaseT=.5;
     }
   }else if(F.phase==='recover'){
@@ -273,41 +316,50 @@ function think(dt){
     F.phase='guard';F.phaseT=rng(F.op.openEvery);
   }
 }
-const rng=([a,b])=>a+Math.random()*(b-a);
 
+/* ---- drawing ---- */
 function drawOpponent(){
   const A=F.anim,u=Math.min(W,H);
-  const cx=W/2;
-  const cy=H*.34+Math.sin(A.bob)*u*.012+(A.hurt*u*.02);
-  const hu=F.op?F.op.hue:'#ff3ea5';
+  const cx=W/2+A.knock*u*.05-lean*u*.05; // your lean shifts your view of him
+  const cy=H*.34+Math.sin(A.bob)*u*.012+(A.hurt*u*.025);
+  const hu=F.op.hue;
   ctx.save();
-  if(A.hurt>0)ctx.translate((Math.random()-.5)*A.hurt*10,0);
-  if(A.slump>0){ // KO: drop straight down through the floor, slight tilt, fade
+  if(A.hurt>0)ctx.translate((Math.random()-.5)*A.hurt*12,(Math.random()-.5)*A.hurt*6);
+  if(A.slump>0){
     ctx.translate(0,A.slump*A.slump*H*.55);
     ctx.translate(cx,cy+u*.3);ctx.rotate(A.slump*.3);ctx.translate(-cx,-(cy+u*.3));
-    ctx.globalAlpha=1-A.slump*.6}
-  // torso
+    ctx.globalAlpha=1-A.slump*.6;
+  }
   ctx.fillStyle='#1d2445';
   ctx.beginPath();ctx.ellipse(cx,cy+u*.30,u*.16,u*.20,0,0,7);ctx.fill();
   ctx.strokeStyle=hu;ctx.lineWidth=3;ctx.stroke();
-  // body target zone marker
   if(F.opening==='body')zoneRing(ZONES.body(),'#c8ff3e');
-  // head
   ctx.fillStyle='#e8b98c';
   ctx.beginPath();ctx.arc(cx,cy,u*.085,0,7);ctx.fill();
   ctx.strokeStyle=hu;ctx.lineWidth=3;ctx.stroke();
-  // face — angry brows + eyes track hurt
-  ctx.fillStyle='#0b0e1a';
+  const ko=F.state==='ko';
+  ctx.fillStyle='#0b0e1a';ctx.strokeStyle='#0b0e1a';
   const ey=cy-u*.012,eo=u*.032;
-  ctx.beginPath();ctx.arc(cx-eo,ey,A.hurt>0?u*.014:u*.009,0,7);ctx.fill();
-  ctx.beginPath();ctx.arc(cx+eo,ey,A.hurt>0?u*.014:u*.009,0,7);ctx.fill();
-  ctx.lineWidth=4;ctx.strokeStyle='#0b0e1a';
-  ctx.beginPath();ctx.moveTo(cx-eo-u*.02,ey-u*.03);ctx.lineTo(cx-eo+u*.015,ey-u*.018);ctx.stroke();
-  ctx.beginPath();ctx.moveTo(cx+eo+u*.02,ey-u*.03);ctx.lineTo(cx+eo-u*.015,ey-u*.018);ctx.stroke();
-  ctx.beginPath();ctx.arc(cx,cy+u*.035,u*.02,A.hurt>0?Math.PI:0,A.hurt>0?0:Math.PI,A.hurt>0);ctx.stroke();
+  if(ko){ // X eyes
+    ctx.lineWidth=4;
+    for(const s of [-1,1]){
+      ctx.beginPath();ctx.moveTo(cx+s*eo-u*.012,ey-u*.012);ctx.lineTo(cx+s*eo+u*.012,ey+u*.012);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(cx+s*eo+u*.012,ey-u*.012);ctx.lineTo(cx+s*eo-u*.012,ey+u*.012);ctx.stroke();
+    }
+  }else{
+    ctx.beginPath();ctx.arc(cx-eo,ey,A.hurt>0?u*.014:u*.009,0,7);ctx.fill();
+    ctx.beginPath();ctx.arc(cx+eo,ey,A.hurt>0?u*.014:u*.009,0,7);ctx.fill();
+    ctx.lineWidth=4;
+    ctx.beginPath();ctx.moveTo(cx-eo-u*.02,ey-u*.03);ctx.lineTo(cx-eo+u*.015,ey-u*.018);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(cx+eo+u*.02,ey-u*.03);ctx.lineTo(cx+eo-u*.015,ey-u*.018);ctx.stroke();
+  }
+  ctx.lineWidth=4;
+  ctx.beginPath();
+  if(ko||A.hurt>0)ctx.arc(cx,cy+u*.045,u*.016,0,7); // shocked O
+  else ctx.arc(cx,cy+u*.052,u*.02,Math.PI*1.12,Math.PI*1.88); // mean frown
+  ctx.stroke();
   if(F.opening==='headL')zoneRing(ZONES.headL(),'#c8ff3e');
   if(F.opening==='headR')zoneRing(ZONES.headR(),'#c8ff3e');
-  // gloves
   glove(cx-u*.115,cy+u*.02,A.gL,'L',hu,u);
   glove(cx+u*.115,cy+u*.02,A.gR,'R',hu,u);
   ctx.restore();
@@ -315,14 +367,16 @@ function drawOpponent(){
 function glove(gx,gy,raise,side,hu,u){
   const A=F.anim;
   let x=gx,y=gy+(1-raise)*u*.16,r=u*.055;
-  if((F.phase==='windup'&&F.punchSide===side)){
-    const k=1-F.phaseT/F.op.windup;
-    y+=k*u*.05;r*=1+k*.35; // pull back + swell = the telegraph
-    ctx.beginPath();ctx.arc(x,y,r+8+Math.sin(performance.now()/60)*3,0,7);
-    ctx.strokeStyle='#ffb03e';ctx.lineWidth=4;ctx.stroke();
+  if(F.phase==='windup'&&F.punchSide===side){
+    const k=1-F.phaseT/(F.op.windup*(F.tut?1.8:1));
+    y+=k*u*.05;r*=1+k*.4;
+    ctx.beginPath();ctx.arc(x,y,r+9+Math.sin(performance.now()/60)*3,0,7);
+    ctx.strokeStyle='#ffb03e';ctx.lineWidth=5;ctx.stroke();
   }
   if((F.phase==='punch'||F.phase==='recover')&&A.extSide===side&&A.ext>0){
-    r*=1+A.ext*2.6;y+=A.ext*H*.24; // flies at the camera
+    r*=1+A.ext*2.6;
+    y+=A.ext*H*.26;
+    if(F.dodged)x+=(lean>0?-1:1)*A.ext*W*.3; // you slipped — his glove sails past
   }
   ctx.fillStyle=hu;
   ctx.beginPath();ctx.arc(x,y,r,0,7);ctx.fill();
@@ -335,33 +389,77 @@ function zoneRing(z,col){
   ctx.beginPath();ctx.arc(z.x,z.y,z.r+6+Math.sin(t)*3,0,7);ctx.stroke();
   ctx.setLineDash([]);
   ctx.fillStyle=col;ctx.font='bold 15px Bungee, sans-serif';ctx.textAlign='center';
-  ctx.fillText(z.hand?(z.hand==='L'?'LEFT!':'RIGHT!'):'BODY!',z.x,z.y-z.r-16);
+  ctx.fillText(z.hand?(z.hand==='L'?'LEFT HAND!':'RIGHT HAND!'):'BODY!',z.x,z.y-z.r-16);
+}
+/* your own gloves — you ARE in the fight */
+function drawPlayerGloves(dt){
+  const u=Math.min(W,H);
+  for(const k of ['L','R']){
+    const h=hands[k];h.anim=Math.max(0,h.anim-dt*4);
+    // mirrored wrist → screen; gloves live in the lower half of your view
+    const gx=(1-h.x)*W+(k==='L'?-1:1)*0;
+    const gy=H*(.52+h.y*.42)-h.anim*H*.16;
+    const r=u*.065*(1+h.anim*.7);
+    const col=k==='L'?'#3ee8ff':'#c8ff3e';
+    ctx.save();
+    ctx.translate(gx-lean*u*.04,gy);
+    ctx.fillStyle=col;
+    ctx.beginPath();ctx.arc(0,0,r,0,7);ctx.fill();
+    ctx.fillStyle='rgba(11,14,26,.35)';
+    ctx.beginPath();ctx.arc(-r*.25,r*.2,r*.55,0,7);ctx.fill(); // knuckle shading
+    ctx.strokeStyle='rgba(11,14,26,.6)';ctx.lineWidth=4;
+    ctx.beginPath();ctx.arc(0,0,r,0,7);ctx.stroke();
+    if(h.anim>0){ // speed lines when you throw
+      ctx.strokeStyle=col;ctx.globalAlpha=h.anim*.7;ctx.lineWidth=3;
+      for(const o of [-r*.5,0,r*.5]){
+        ctx.beginPath();ctx.moveTo(o,r+8);ctx.lineTo(o,r+8+h.anim*36);ctx.stroke()}
+      ctx.globalAlpha=1;
+    }
+    ctx.restore();
+  }
+}
+function drawDodgeCue(){
+  if(F.phase!=='windup'&&!(F.phase==='punch'&&!F.dodged))return;
+  const u=Math.min(W,H),k=Math.sin(performance.now()/110)*u*.012;
+  ctx.font='bold '+Math.round(u*.055)+'px Bungee, sans-serif';ctx.textAlign='center';
+  ctx.fillStyle='#ffb03e';
+  ctx.fillText('⬅',W*.14-k,H*.55);
+  ctx.fillText('➡',W*.86+k,H*.55);
+  ctx.font='bold '+Math.round(u*.03)+'px Bungee, sans-serif';
+  ctx.fillText('DODGE — LEAN A SIDE!',W/2,H*.62);
+  // your live balance bar
+  const bx=W/2,by=H*.67,bw=u*.3;
+  ctx.strokeStyle='rgba(242,244,255,.35)';ctx.lineWidth=4;
+  ctx.beginPath();ctx.moveTo(bx-bw/2,by);ctx.lineTo(bx+bw/2,by);ctx.stroke();
+  for(const s of [-1,1]){ // dodge thresholds
+    ctx.strokeStyle='#ffb03e';
+    ctx.beginPath();ctx.moveTo(bx+s*bw*.42,by-8);ctx.lineTo(bx+s*bw*.42,by+8);ctx.stroke();
+  }
+  ctx.fillStyle=Math.abs(lean)>.42?'#c8ff3e':'#f2f4ff';
+  ctx.beginPath();ctx.arc(bx+Math.max(-bw/2,Math.min(bw/2,(lean/.42)*bw*.42)),by,9,0,7);ctx.fill();
 }
 
-/* ---- loop ---- */
+/* ---- main loop ---- */
 let lastF=0,alive=false;
 function loop(now){
   if(!alive)return;
-  const dt=Math.min(.05,(now-lastF)/1000)||.016;lastF=now;
+  let dt=Math.min(.05,(now-lastF)/1000)||.016;lastF=now;
+  if(FX.stop>0){FX.stop-=dt;dt=0} // hit-stop: freeze the world for a beat
   ctx.clearRect(0,0,W,H);
-  // ring ropes
+  ctx.save();
+  if(FX.shake>0){FX.shake=Math.max(0,FX.shake-(dt||.016)*3);
+    ctx.translate((Math.random()-.5)*FX.shake*22,(Math.random()-.5)*FX.shake*22)}
   ctx.strokeStyle='rgba(62,232,255,.14)';ctx.lineWidth=3;
   for(let i=0;i<3;i++){ctx.beginPath();ctx.moveTo(0,H*.62+i*34);ctx.lineTo(W,H*.62+i*34);ctx.stroke()}
-  if(F.op)think(dt);
-  if(F.op)drawOpponent();
-  // your lean indicator
-  if(F.state==='fight'){
-    const lx=W/2+Math.max(-1.2,Math.min(1.2,lean))*W*.12;
-    ctx.fillStyle='rgba(200,255,62,.85)';
-    ctx.beginPath();ctx.arc(lx,H*.9,9,0,7);ctx.fill();
-    ctx.strokeStyle='rgba(200,255,62,.3)';ctx.lineWidth=2;
-    ctx.beginPath();ctx.moveTo(W/2,H*.9-16);ctx.lineTo(W/2,H*.9+16);ctx.stroke();
-  }
+  if(F.op){think(dt);drawOpponent();drawDodgeCue()}
+  if(F.state==='fight'||F.state==='ko')drawPlayerGloves(dt||.016);
+  drawFx(dt||.016);
+  ctx.restore();
   requestAnimationFrame(loop);
 }
 let banT=null;
 function banner(t,col){const b=$('banner');b.textContent=t;b.style.color=col;b.style.opacity=1;
-  clearTimeout(banT);banT=setTimeout(()=>b.style.opacity=0,700)}
+  clearTimeout(banT);banT=setTimeout(()=>b.style.opacity=0,800)}
 
 $('btnStart').onclick=async()=>{
   try{
@@ -375,7 +473,6 @@ $('btnStart').onclick=async()=>{
 };
 $('btnAgain').onclick=()=>{F.kos=0;F.landed=0;F.thrown=0;F.dodges=0;F.eaten=0;F.myHP=100;startFight(0)};
 alive=true;requestAnimationFrame(loop);
-// ?demo — watch the opponent AI without a camera (no inputs)
 if(location.search.includes('demo')){$('startOv').classList.add('hidden');startFight(0)}
 </script>
 </body>
