@@ -23,6 +23,8 @@
     border:2px solid var(--cyan);box-shadow:0 0 24px rgba(62,232,255,.35);z-index:5}
   #cam{width:100%;display:block;transform:scaleX(-1)}
   #skel{position:absolute;inset:0;width:100%;height:100%;transform:scaleX(-1)}
+  #camwrap.big{right:50%;transform:translateX(50%);bottom:16%;width:min(380px,72vw);max-width:72vw;z-index:11}
+  #camwrap.good{border-color:var(--lime);box-shadow:0 0 28px rgba(200,255,62,.5)}
   .overlay{position:fixed;inset:0;background:rgba(11,14,26,.93);z-index:10;display:flex;flex-direction:column;
     align-items:center;justify-content:center;gap:20px;text-align:center;padding:24px}
   .overlay h1{font-family:'Bungee',cursive;font-size:clamp(32px,7vw,60px);line-height:1.05}
@@ -146,15 +148,27 @@ function poseLoop(){
     const dt=Math.min(.1,(now-lastPose)/1000)||.033;lastPose=now;
     shoulderW=Math.max(.08,Math.abs(lm[11].x-lm[12].x));
     const mid=1-((lm[11].x+lm[12].x)/2);
-    if(cal.active&&!cal.done){ // lock your stance: centered position becomes the zero point
-      cal.samples.push(mid);
-      $('calStatus').textContent='Hold still — locking your stance…';
-      $('calFill').style.width=Math.min(100,cal.samples.length*3.4)+'%';
-      if(cal.samples.length>=30){
-        leanBase=cal.samples.reduce((a,b)=>a+b,0)/cal.samples.length;
-        cal.done=true;cal.active=false;
-        $('calOv').classList.add('hidden');
-        startFight(0);
+    if(cal.active&&!cal.done){
+      // the camera must see your whole fighting body: shoulders, hips, both wrists
+      const vis=i=>(lm[i].visibility==null||lm[i].visibility>.5)&&lm[i].x>0&&lm[i].x<1&&lm[i].y>0&&lm[i].y<1;
+      const bodyOk=vis(11)&&vis(12)&&vis(23)&&vis(24)&&vis(15)&&vis(16);
+      if(!bodyOk){
+        cal.samples=[];
+        $('camwrap').classList.remove('good');
+        $('calStatus').textContent='Step back — I need to see your chest, hips and both fists';
+        $('calFill').style.width='0%';
+      }else{
+        $('camwrap').classList.add('good');
+        cal.samples.push(mid);
+        $('calStatus').textContent='Perfect — hold still, locking your stance…';
+        $('calFill').style.width=Math.min(100,cal.samples.length*3.4)+'%';
+        if(cal.samples.length>=30){
+          leanBase=cal.samples.reduce((a,b)=>a+b,0)/cal.samples.length;
+          cal.done=true;cal.active=false;
+          $('calOv').classList.add('hidden');
+          $('camwrap').classList.remove('big');$('camwrap').classList.remove('good');
+          startFight(0);
+        }
       }
     }
     if(leanBase==null)leanBase=mid;
@@ -502,6 +516,7 @@ $('btnStart').onclick=async()=>{
     cal.samples=[];cal.done=false;cal.active=true;
     $('calFill').style.width='0%';
     $('startOv').classList.add('hidden');
+    $('camwrap').classList.add('big');
     $('calOv').classList.remove('hidden');
   }catch(e){
     $('startStatus').textContent='Camera failed ('+e.message+'). Use Safari/Chrome, allow camera.';
