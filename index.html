@@ -10,10 +10,15 @@
   *{margin:0;padding:0;box-sizing:border-box;touch-action:manipulation}
   html,body{height:100%;overflow:hidden;background:var(--ink);color:var(--paper);font-family:'Space Grotesk',sans-serif}
   #ring{position:fixed;inset:0;display:block}
-  .hud{position:fixed;top:14px;left:16px;right:16px;display:flex;justify-content:space-between;z-index:5;pointer-events:none}
-  .score{font-family:'Bungee',cursive;font-size:30px;color:var(--lime)}
-  .timer{font-family:'Bungee',cursive;font-size:30px;color:var(--cyan)}
-  #combo{position:fixed;top:64px;left:16px;font-family:'Bungee',cursive;font-size:16px;color:var(--magenta);z-index:5}
+  #bars{position:fixed;top:12px;left:12px;right:12px;display:flex;gap:14px;z-index:5;pointer-events:none}
+  .hpwrap{flex:1}
+  .hpname{font-family:'Bungee',cursive;font-size:13px;margin-bottom:3px}
+  .hp{height:16px;border:2px solid #2a3357;border-radius:9px;overflow:hidden;background:rgba(20,26,48,.7)}
+  .hp i{display:block;height:100%;transition:width .15s}
+  #hpMe i{background:var(--lime)}
+  #hpOp i{background:var(--magenta)}
+  #roundTag{position:fixed;top:52px;left:50%;transform:translateX(-50%);font-family:'Bungee',cursive;
+    font-size:13px;color:var(--cyan);z-index:5;pointer-events:none}
   #camwrap{position:fixed;right:14px;bottom:14px;width:150px;max-width:40vw;border-radius:14px;overflow:hidden;
     border:2px solid var(--cyan);box-shadow:0 0 24px rgba(62,232,255,.35);z-index:5}
   #cam{width:100%;display:block;transform:scaleX(-1)}
@@ -30,36 +35,40 @@
   button:active{transform:translateY(4px);box-shadow:0 2px 0 #7da317}
   .status{font-size:15px;color:var(--cyan);min-height:22px}
   .hidden{display:none !important}
-  #banner{position:fixed;top:22%;left:50%;transform:translate(-50%,-50%);font-family:'Bungee',cursive;
+  #banner{position:fixed;top:20%;left:50%;transform:translate(-50%,-50%);font-family:'Bungee',cursive;
     font-size:clamp(26px,8vw,56px);color:var(--magenta);text-shadow:0 0 30px rgba(255,62,165,.8);
     z-index:6;opacity:0;pointer-events:none;transition:opacity .15s;white-space:nowrap}
-  #flash{position:fixed;inset:0;pointer-events:none;z-index:7;opacity:0;background:rgba(255,62,165,.25);transition:opacity .1s}
+  #flash{position:fixed;inset:0;pointer-events:none;z-index:7;opacity:0;background:rgba(255,62,165,.3);transition:opacity .1s}
 </style>
 </head>
 <body>
 <canvas id="ring"></canvas>
-<div class="hud"><div class="score" id="score">0</div><div class="timer" id="timer">60</div></div>
-<div id="combo"></div>
+<div id="bars">
+  <div class="hpwrap"><div class="hpname" style="color:var(--lime)" id="nameMe">YOU</div><div class="hp" id="hpMe"><i style="width:100%"></i></div></div>
+  <div class="hpwrap"><div class="hpname" style="color:var(--magenta);text-align:right" id="nameOp">BRUTUS · LV 1</div><div class="hp" id="hpOp"><i style="width:100%"></i></div></div>
+</div>
+<div id="roundTag"></div>
 <div id="banner"></div>
 <div id="flash"></div>
 <div id="camwrap" class="hidden"><video id="cam" autoplay playsinline muted></video><canvas id="skel"></canvas></div>
 
 <div class="overlay" id="startOv">
   <h1><span class="c">CARDIO</span><span class="m">BOXING</span></h1>
-  <p>Camera-only boxing. Stand ~1.5 m back, chest and fists visible. Pads light up — punch them with the matching hand. 60 seconds, all-out.</p>
+  <p>A real fight, your body is the controller. Stand ~1.5 m back, chest and fists visible.</p>
   <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
-    <div class="ctl"><b>🥊 JAB</b>Punch when a pad lights on your side — LEFT hand for left pads, RIGHT for right</div>
-    <div class="ctl"><b>🔥 COMBO</b>Fast clean hits chain the multiplier — misses reset it</div>
+    <div class="ctl"><b>🥊 ATTACK</b>When his guard drops, a target flashes — punch it with that hand before it closes</div>
+    <div class="ctl"><b>🙆 DODGE</b>When his glove glows and swells, he's swinging — lean your body LEFT or RIGHT to slip it</div>
   </div>
-  <button id="btnStart">START 60s ROUND</button>
+  <p style="font-size:14px">Knock him out before he knocks you out. Each KO brings a bigger, faster opponent.</p>
+  <button id="btnStart">🔔 FIGHT</button>
   <div class="status" id="startStatus"></div>
-  <div class="small" style="font-size:13px;color:#6f7aa6">Prototype — nothing uploaded, camera stays on this device.</div>
+  <div style="font-size:13px;color:#6f7aa6">Prototype — nothing uploaded, camera stays on this device.</div>
 </div>
 
 <div class="overlay hidden" id="endOv">
-  <h1 id="endTitle"><span class="m">TIME</span></h1>
+  <h1 id="endTitle"></h1>
   <p id="endStats"></p>
-  <button id="btnAgain">GO AGAIN</button>
+  <button id="btnAgain">🔔 REMATCH</button>
 </div>
 
 <script type="module">
@@ -68,11 +77,12 @@ import { FilesetResolver, PoseLandmarker } from
 
 const $=id=>document.getElementById(id);
 const cnv=$('ring'),ctx=cnv.getContext('2d');
-function resize(){cnv.width=innerWidth*devicePixelRatio;cnv.height=innerHeight*devicePixelRatio;
+let W=innerWidth,H=innerHeight;
+function resize(){W=innerWidth;H=innerHeight;cnv.width=W*devicePixelRatio;cnv.height=H*devicePixelRatio;
   ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0)}
 addEventListener('resize',resize);resize();
 
-/* ---- synth sfx (same recipe as the runner) ---- */
+/* ---- synth sfx ---- */
 let AC=null;const ac=()=>AC||(AC=new (window.AudioContext||window.webkitAudioContext)());
 function tone(f,type,a,d,peak,slide){const c=ac(),t0=c.currentTime,o=c.createOscillator(),g=c.createGain();
   o.type=type;o.frequency.setValueAtTime(f,t0);
@@ -81,11 +91,14 @@ function tone(f,type,a,d,peak,slide){const c=ac(),t0=c.currentTime,o=c.createOsc
   g.gain.exponentialRampToValueAtTime(.001,t0+a+d);
   o.connect(g).connect(c.destination);o.start(t0);o.stop(t0+a+d+.05)}
 const SFX={
-  hit(){tone(180,'square',.005,.09,.25,80);tone(900,'square',.005,.05,.12)},
-  perfect(){tone(988,'square',.01,.08,.15);tone(1319,'square',.01,.1,.15)},
-  miss(){tone(160,'sawtooth',.01,.2,.18,70)},
-  go(){[523,659,784].forEach((f,i)=>setTimeout(()=>tone(f,'square',.01,.12,.15),i*90))},
-  end(){[392,330,262].forEach((f,i)=>setTimeout(()=>tone(f,'triangle',.02,.2,.2),i*160))}
+  land(){tone(150,'square',.005,.1,.28,70);tone(800,'square',.005,.05,.1)},
+  crit(){tone(180,'square',.005,.12,.3,60);tone(1319,'square',.01,.1,.15)},
+  hurt(){tone(120,'sawtooth',.01,.25,.25,55)},
+  swish(){tone(700,'sawtooth',.01,.14,.08,180)},
+  dodge(){tone(988,'square',.01,.07,.12);tone(1319,'square',.06,.08,.12)},
+  bell(){[880,880].forEach((f,i)=>setTimeout(()=>tone(f,'triangle',.01,.5,.25),i*350))},
+  ko(){[392,330,262,196].forEach((f,i)=>setTimeout(()=>tone(f,'triangle',.02,.25,.22),i*150))},
+  win(){[523,659,784,1047].forEach((f,i)=>setTimeout(()=>tone(f,'square',.01,.15,.15),i*100))}
 };
 
 /* ---- pose ---- */
@@ -106,17 +119,15 @@ async function initCamera(){
   $('camwrap').classList.remove('hidden');
 }
 
-/* ---- game state ---- */
-const G={running:false,score:0,combo:0,best:0,timeLeft:60,pads:[],hits:0,swings:0,shake:0};
-// wrist trackers: history for speed, per-hand cooldown
+/* ---- player input: punches + lean ---- */
 const hands={
   L:{lm:15,sh:11,x:0,y:0,px:0,py:0,speed:0,ext:0,pext:0,cool:0},
   R:{lm:16,sh:12,x:0,y:0,px:0,py:0,speed:0,ext:0,pext:0,cool:0}
 };
-let shoulderW=.2,lastPose=0;
+let shoulderW=.2,lean=0,leanBase=null,lastPose=0;
 
 function poseLoop(){
-  if(!G.alive)return;
+  if(!alive)return;
   if(!landmarker||video.readyState<2){requestAnimationFrame(poseLoop);return}
   const now=performance.now();
   const res=landmarker.detectForVideo(video,now);
@@ -125,16 +136,20 @@ function poseLoop(){
     const lm=res.landmarks[0];
     const dt=Math.min(.1,(now-lastPose)/1000)||.033;lastPose=now;
     shoulderW=Math.max(.08,Math.abs(lm[11].x-lm[12].x));
+    // lean: shoulder midpoint vs slow-follow baseline, mirrored so leaning left = negative
+    const mid=1-((lm[11].x+lm[12].x)/2);
+    if(leanBase==null)leanBase=mid;
+    leanBase+=(mid-leanBase)*Math.min(1,dt*.35);   // very slow drift — a held lean still counts
+    lean=(mid-leanBase)/shoulderW;
     for(const k of ['L','R']){
       const h=hands[k],w=lm[h.lm],s=lm[h.sh];
       h.px=h.x;h.py=h.y;h.x=w.x;h.y=w.y;
       const d=Math.hypot(h.x-h.px,h.y-h.py);
-      h.speed=h.speed*.4+(d/dt)*.6;                    // smoothed, units/s
+      h.speed=h.speed*.4+(d/dt)*.6;
       h.pext=h.ext;h.ext=Math.hypot(w.x-s.x,w.y-s.y)/shoulderW;
       h.cool=Math.max(0,h.cool-dt);
-      // punch = fast wrist + arm extending outward, off cooldown
-      if(G.running&&h.cool<=0&&h.speed>1.6&&h.ext>1.05&&h.ext>h.pext+.04){
-        h.cool=.38;registerPunch(k,1-w.x,w.y);         // mirrored x
+      if(F.state==='fight'&&h.cool<=0&&h.speed>1.6&&h.ext>1.05&&h.ext>h.pext+.04){
+        h.cool=.38;playerPunch(k);
       }
       sctx.fillStyle=k==='L'?'#3ee8ff':'#ff3ea5';
       sctx.beginPath();sctx.arc(w.x*skel.width,w.y*skel.height,6,0,7);sctx.fill();
@@ -143,124 +158,222 @@ function poseLoop(){
   requestAnimationFrame(poseLoop);
 }
 
-/* ---- pads ---- */
-function spawnPad(){
-  const side=Math.random()<.5?'L':'R';
-  const W=innerWidth,H=innerHeight;
-  G.pads.push({
-    side,
-    x:(side==='L'?.18+Math.random()*.18:.64+Math.random()*.18)*W,
-    y:(0.3+Math.random()*.35)*H,
-    r:Math.min(W,H)*.09,born:performance.now(),life:2200,hit:0,dead:false
-  });
+/* ---- fight state ---- */
+const OPPONENTS=[
+  {name:'BRUTUS',hue:'#ff3ea5',hp:60, openEvery:[1.4,2.2],openDur:1.5,windup:.85,dmg:12},
+  {name:'IRONJAW',hue:'#ffb03e',hp:80, openEvery:[1.2,2.0],openDur:1.25,windup:.7,dmg:15},
+  {name:'COBRA',hue:'#3ee8ff', hp:100,openEvery:[1.0,1.7],openDur:1.05,windup:.6,dmg:18},
+  {name:'THE WALL',hue:'#c8ff3e',hp:130,openEvery:[.9,1.5],openDur:.9,windup:.5,dmg:22}
+];
+const F={state:'idle',lvl:0,op:null,opHP:0,myHP:100,phase:'guard',phaseT:0,
+  opening:null,punchSide:null,anim:{gL:1,gR:1,ext:0,extSide:'L',hurt:0,bob:0,slump:0},
+  kos:0,landed:0,thrown:0,dodges:0,eaten:0};
+
+function startFight(lvl){
+  F.lvl=lvl;F.op=OPPONENTS[Math.min(lvl,OPPONENTS.length-1)];
+  F.opHP=F.op.hp;F.myHP=(lvl===0?100:Math.min(100,F.myHP+25)); // heal a bit between rounds
+  F.state='fight';F.phase='guard';F.phaseT=1.2;F.opening=null;F.punchSide=null;
+  Object.assign(F.anim,{gL:1,gR:1,ext:0,hurt:0,slump:0});
+  $('nameOp').textContent=F.op.name+' · LV '+(lvl+1);
+  $('roundTag').textContent='ROUND '+(lvl+1);
+  updateBars();
+  $('startOv').classList.add('hidden');$('endOv').classList.add('hidden');
+  banner('🔔 ROUND '+(lvl+1),'#c8ff3e');SFX.bell();
 }
-function registerPunch(hand,nx,ny){
-  G.swings++;
-  // hit the nearest live pad of the matching side; generous radius (arcade feel)
-  const W=innerWidth,H=innerHeight,px=nx*W,py=ny*H;
-  let best=null,bd=1e9;
-  for(const p of G.pads){
-    if(p.dead||p.hit||p.side!==hand)continue;
-    const d=Math.hypot(p.x-px,p.y-py);
-    if(d<bd){bd=d;best=p}
+function updateBars(){
+  $('hpMe').firstElementChild.style.width=Math.max(0,F.myHP)+'%';
+  $('hpOp').firstElementChild.style.width=Math.max(0,F.opHP/F.op.hp*100)+'%';
+}
+const ZONES={ // where you must punch, in screen space (drawn on the opponent)
+  headL:()=>({x:W/2-W*.11,y:H*.30,r:Math.min(W,H)*.07,hand:'R'}), // his head-left = your RIGHT cross
+  headR:()=>({x:W/2+W*.11,y:H*.30,r:Math.min(W,H)*.07,hand:'L'}),
+  body:()=>({x:W/2,y:H*.52,r:Math.min(W,H)*.085,hand:null})       // body: either hand
+};
+function playerPunch(hand){
+  F.thrown++;
+  if(F.opening){
+    const z=ZONES[F.opening]();
+    if(!z.hand||z.hand===hand){
+      const early=F.phaseT>((F.op.openDur)*.45);
+      const dmg=(early?14:9)+(F.opening==='body'?2:0);
+      F.opHP-=dmg;F.landed++;
+      F.opening=null;F.phase='hurt';F.phaseT=.5;F.anim.hurt=1;
+      banner(early?'CLEAN HIT! -'+dmg:'HIT -'+dmg,early?'#c8ff3e':'#3ee8ff');
+      early?SFX.crit():SFX.land();
+      if(navigator.vibrate)navigator.vibrate(early?70:40);
+      updateBars();
+      if(F.opHP<=0)return koOpponent();
+      return;
+    }
   }
-  if(best&&bd<best.r*2.6){
-    best.hit=performance.now();
-    const age=best.hit-best.born;
-    const perfect=age<900;
-    G.combo++;G.best=Math.max(G.best,G.combo);G.hits++;
-    const pts=(perfect?150:100)*Math.min(5,1+Math.floor(G.combo/5));
-    G.score+=pts;G.shake=perfect?.5:.3;
-    $('score').textContent=G.score;
-    $('combo').textContent=G.combo>=3?('🔥 COMBO ×'+G.combo):'';
-    banner(perfect?'PERFECT! +'+pts:'+'+pts,perfect?'#c8ff3e':'#3ee8ff');
-    perfect?SFX.perfect():SFX.hit();
-    if(navigator.vibrate)navigator.vibrate(perfect?70:35);
-  }else{
-    G.combo=0;$('combo').textContent='';SFX.miss();
-    $('flash').style.opacity=1;setTimeout(()=>$('flash').style.opacity=0,120);
+  SFX.swish(); // swing at nothing / wrong hand
+}
+function koOpponent(){
+  F.kos++;F.state='ko';F.phaseT=2.2;F.anim.slump=0;
+  banner('💥 KO! '+F.op.name+' IS DOWN','#c8ff3e');SFX.win();
+}
+function playerHit(){
+  F.myHP-=F.op.dmg;F.eaten++;updateBars();
+  $('flash').style.opacity=1;setTimeout(()=>$('flash').style.opacity=0,140);
+  banner('-'+F.op.dmg+' 🥴','#ff3ea5');SFX.hurt();
+  if(navigator.vibrate)navigator.vibrate(140);
+  if(F.myHP<=0){
+    F.state='over';SFX.ko();
+    $('endTitle').innerHTML='<span class="m">KNOCKED</span> OUT';
+    $('endStats').innerHTML=endLine();
+    setTimeout(()=>$('endOv').classList.remove('hidden'),700);
   }
+}
+function endLine(){
+  const acc=F.thrown?Math.round(F.landed/F.thrown*100):0;
+  return 'KOs <b style="color:var(--lime)">'+F.kos+'</b> · Punches landed <b style="color:var(--cyan)">'
+    +F.landed+'</b> ('+acc+'%) · Dodged <b style="color:var(--magenta)">'+F.dodges+'</b>';
+}
+
+/* ---- opponent brain + animation + draw ---- */
+function think(dt){
+  const A=F.anim;
+  A.bob+=dt*3.1;A.hurt=Math.max(0,A.hurt-dt*2.4);
+  if(F.state==='ko'){
+    A.slump=Math.min(1,A.slump+dt*.9);
+    F.phaseT-=dt;
+    if(F.phaseT<=0)startFight(F.lvl+1);
+    return;
+  }
+  if(F.state!=='fight')return;
+  F.phaseT-=dt;
+  const gTargetL=(F.opening==='headR'||(F.phase==='windup'&&F.punchSide==='L')||(F.phase==='punch'&&F.punchSide==='L'))?0:1;
+  const gTargetR=(F.opening==='headL'||(F.phase==='windup'&&F.punchSide==='R')||(F.phase==='punch'&&F.punchSide==='R'))?0:1;
+  A.gL+=(gTargetL-A.gL)*Math.min(1,dt*8);
+  A.gR+=(gTargetR-A.gR)*Math.min(1,dt*8);
+  if(F.phase==='guard'&&F.phaseT<=0){
+    if(Math.random()<.55){ // drop guard → your chance
+      F.opening=['headL','headR','body'][Math.floor(Math.random()*3)];
+      F.phase='open';F.phaseT=F.op.openDur;
+    }else{ // he attacks
+      F.punchSide=Math.random()<.5?'L':'R';
+      F.phase='windup';F.phaseT=F.op.windup;SFX.swish();
+    }
+  }else if(F.phase==='open'&&F.phaseT<=0){
+    F.opening=null;F.phase='guard';F.phaseT=rng(F.op.openEvery);
+  }else if(F.phase==='windup'&&F.phaseT<=0){
+    F.phase='punch';F.phaseT=.30;
+  }else if(F.phase==='punch'){
+    A.ext=1-F.phaseT/.30;A.extSide=F.punchSide;
+    if(F.phaseT<=0){
+      // impact: dodged if leaning hard either way
+      if(Math.abs(lean)>.55){F.dodges++;banner('SLIPPED IT! 😮‍💨','#3ee8ff');SFX.dodge()}
+      else playerHit();
+      F.phase='recover';F.phaseT=.5;
+    }
+  }else if(F.phase==='recover'){
+    A.ext=Math.max(0,1-((.5-F.phaseT)/.5)*2);
+    if(F.phaseT<=0){F.phase='guard';F.phaseT=rng(F.op.openEvery)}
+  }else if(F.phase==='hurt'&&F.phaseT<=0){
+    F.phase='guard';F.phaseT=rng(F.op.openEvery);
+  }
+}
+const rng=([a,b])=>a+Math.random()*(b-a);
+
+function drawOpponent(){
+  const A=F.anim,u=Math.min(W,H);
+  const cx=W/2,slump=A.slump*H*.35;
+  const cy=H*.34+Math.sin(A.bob)*u*.012+(A.hurt*u*.02)+slump;
+  const hu=F.op?F.op.hue:'#ff3ea5';
+  ctx.save();
+  if(A.hurt>0)ctx.translate((Math.random()-.5)*A.hurt*10,0);
+  if(A.slump>0){ctx.translate(cx,cy);ctx.rotate(A.slump*.9);ctx.translate(-cx,-cy);ctx.globalAlpha=1-A.slump*.5}
+  // torso
+  ctx.fillStyle='#1d2445';
+  ctx.beginPath();ctx.ellipse(cx,cy+u*.30,u*.16,u*.20,0,0,7);ctx.fill();
+  ctx.strokeStyle=hu;ctx.lineWidth=3;ctx.stroke();
+  // body target zone marker
+  if(F.opening==='body')zoneRing(ZONES.body(),'#c8ff3e');
+  // head
+  ctx.fillStyle='#e8b98c';
+  ctx.beginPath();ctx.arc(cx,cy,u*.085,0,7);ctx.fill();
+  ctx.strokeStyle=hu;ctx.lineWidth=3;ctx.stroke();
+  // face — angry brows + eyes track hurt
+  ctx.fillStyle='#0b0e1a';
+  const ey=cy-u*.012,eo=u*.032;
+  ctx.beginPath();ctx.arc(cx-eo,ey,A.hurt>0?u*.014:u*.009,0,7);ctx.fill();
+  ctx.beginPath();ctx.arc(cx+eo,ey,A.hurt>0?u*.014:u*.009,0,7);ctx.fill();
+  ctx.lineWidth=4;ctx.strokeStyle='#0b0e1a';
+  ctx.beginPath();ctx.moveTo(cx-eo-u*.02,ey-u*.03);ctx.lineTo(cx-eo+u*.015,ey-u*.018);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(cx+eo+u*.02,ey-u*.03);ctx.lineTo(cx+eo-u*.015,ey-u*.018);ctx.stroke();
+  ctx.beginPath();ctx.arc(cx,cy+u*.035,u*.02,A.hurt>0?Math.PI:0,A.hurt>0?0:Math.PI,A.hurt>0);ctx.stroke();
+  if(F.opening==='headL')zoneRing(ZONES.headL(),'#c8ff3e');
+  if(F.opening==='headR')zoneRing(ZONES.headR(),'#c8ff3e');
+  // gloves
+  glove(cx-u*.115,cy+u*.02,A.gL,'L',hu,u);
+  glove(cx+u*.115,cy+u*.02,A.gR,'R',hu,u);
+  ctx.restore();
+}
+function glove(gx,gy,raise,side,hu,u){
+  const A=F.anim;
+  let x=gx,y=gy+(1-raise)*u*.16,r=u*.055;
+  if((F.phase==='windup'&&F.punchSide===side)){
+    const k=1-F.phaseT/F.op.windup;
+    y+=k*u*.05;r*=1+k*.35; // pull back + swell = the telegraph
+    ctx.beginPath();ctx.arc(x,y,r+8+Math.sin(performance.now()/60)*3,0,7);
+    ctx.strokeStyle='#ffb03e';ctx.lineWidth=4;ctx.stroke();
+  }
+  if((F.phase==='punch'||F.phase==='recover')&&A.extSide===side&&A.ext>0){
+    r*=1+A.ext*2.6;y+=A.ext*H*.24; // flies at the camera
+  }
+  ctx.fillStyle=hu;
+  ctx.beginPath();ctx.arc(x,y,r,0,7);ctx.fill();
+  ctx.strokeStyle='rgba(11,14,26,.55)';ctx.lineWidth=3;ctx.stroke();
+}
+function zoneRing(z,col){
+  const t=performance.now()/90;
+  ctx.strokeStyle=col;ctx.lineWidth=5;
+  ctx.setLineDash([10,8]);ctx.lineDashOffset=-t*4;
+  ctx.beginPath();ctx.arc(z.x,z.y,z.r+6+Math.sin(t)*3,0,7);ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle=col;ctx.font='bold 15px Bungee, sans-serif';ctx.textAlign='center';
+  ctx.fillText(z.hand?(z.hand==='L'?'LEFT!':'RIGHT!'):'BODY!',z.x,z.y-z.r-16);
+}
+
+/* ---- loop ---- */
+let lastF=0,alive=false;
+function loop(now){
+  if(!alive)return;
+  const dt=Math.min(.05,(now-lastF)/1000)||.016;lastF=now;
+  ctx.clearRect(0,0,W,H);
+  // ring ropes
+  ctx.strokeStyle='rgba(62,232,255,.14)';ctx.lineWidth=3;
+  for(let i=0;i<3;i++){ctx.beginPath();ctx.moveTo(0,H*.62+i*34);ctx.lineTo(W,H*.62+i*34);ctx.stroke()}
+  if(F.op)think(dt);
+  if(F.op)drawOpponent();
+  // your lean indicator
+  if(F.state==='fight'){
+    const lx=W/2+Math.max(-1.2,Math.min(1.2,lean))*W*.12;
+    ctx.fillStyle='rgba(200,255,62,.85)';
+    ctx.beginPath();ctx.arc(lx,H*.9,9,0,7);ctx.fill();
+    ctx.strokeStyle='rgba(200,255,62,.3)';ctx.lineWidth=2;
+    ctx.beginPath();ctx.moveTo(W/2,H*.9-16);ctx.lineTo(W/2,H*.9+16);ctx.stroke();
+  }
+  requestAnimationFrame(loop);
 }
 let banT=null;
 function banner(t,col){const b=$('banner');b.textContent=t;b.style.color=col;b.style.opacity=1;
-  clearTimeout(banT);banT=setTimeout(()=>b.style.opacity=0,450)}
-
-/* ---- render/game loop ---- */
-let lastF=0,spawnT=0;
-function loop(now){
-  if(!G.alive)return;
-  const dt=Math.min(.05,(now-lastF)/1000)||.016;lastF=now;
-  const W=innerWidth,H=innerHeight;
-  ctx.clearRect(0,0,W,H);
-  // ring floor vibe
-  ctx.strokeStyle='rgba(62,232,255,.12)';ctx.lineWidth=2;
-  for(let i=0;i<4;i++){ctx.beginPath();ctx.moveTo(0,H*.55+i*40);ctx.lineTo(W,H*.55+i*40);ctx.stroke()}
-  if(G.running){
-    G.timeLeft-=dt;$('timer').textContent=Math.max(0,Math.ceil(G.timeLeft));
-    if(G.timeLeft<=0){endRound();return}
-    spawnT-=dt;
-    const pace=Math.max(.55,1.15-(60-G.timeLeft)*.011); // speeds up over the round
-    if(spawnT<=0){spawnPad();spawnT=pace}
-  }
-  const shake=G.shake;G.shake=Math.max(0,G.shake-dt*3);
-  ctx.save();
-  if(shake>0)ctx.translate((Math.random()-.5)*shake*14,(Math.random()-.5)*shake*14);
-  for(const p of G.pads){
-    if(p.dead)continue;
-    const age=now-p.born;
-    if(p.hit){
-      const k=(now-p.hit)/220;
-      if(k>=1){p.dead=true;continue}
-      ctx.globalAlpha=1-k;
-      ctx.fillStyle=p.side==='L'?'#3ee8ff':'#ff3ea5';
-      ctx.beginPath();ctx.arc(p.x,p.y,p.r*(1+k*1.6),0,7);ctx.fill();
-      ctx.globalAlpha=1;continue;
-    }
-    if(age>p.life){p.dead=true;if(G.running){G.combo=0;$('combo').textContent='';}continue}
-    const k=age/p.life;
-    const col=p.side==='L'?'62,232,255':'255,62,165';
-    ctx.strokeStyle=`rgba(${col},.9)`;ctx.lineWidth=5;
-    ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,7);ctx.stroke();
-    ctx.fillStyle=`rgba(${col},${.5-k*.35})`;
-    ctx.beginPath();ctx.arc(p.x,p.y,p.r*(1-k*.25),0,7);ctx.fill();
-    // shrinking timer ring
-    ctx.strokeStyle=`rgba(200,255,62,.9)`;ctx.lineWidth=3;
-    ctx.beginPath();ctx.arc(p.x,p.y,p.r+8,-Math.PI/2,-Math.PI/2+(1-k)*Math.PI*2);ctx.stroke();
-    ctx.fillStyle='#f2f4ff';ctx.font=`bold ${Math.round(p.r*.8)}px Bungee, sans-serif`;
-    ctx.textAlign='center';ctx.textBaseline='middle';
-    ctx.fillText(p.side==='L'?'L':'R',p.x,p.y+2);
-  }
-  ctx.restore();
-  G.pads=G.pads.filter(p=>!p.dead);
-  requestAnimationFrame(loop);
-}
-
-function startRound(){
-  Object.assign(G,{running:true,score:0,combo:0,best:0,timeLeft:60,pads:[],hits:0,swings:0,shake:0});
-  $('score').textContent='0';$('combo').textContent='';$('timer').textContent='60';
-  $('startOv').classList.add('hidden');$('endOv').classList.add('hidden');
-  spawnT=.6;banner('FIGHT!','#c8ff3e');SFX.go();
-}
-function endRound(){
-  G.running=false;SFX.end();
-  const acc=G.swings?Math.round(G.hits/G.swings*100):0;
-  $('endStats').innerHTML='Score <b style="color:var(--lime)">'+G.score+'</b> · Best combo <b style="color:var(--magenta)">×'
-    +G.best+'</b> · Accuracy <b style="color:var(--cyan)">'+acc+'%</b>';
-  $('endOv').classList.remove('hidden');
-  requestAnimationFrame(loop); // keep rendering fade-outs behind the overlay
-}
+  clearTimeout(banT);banT=setTimeout(()=>b.style.opacity=0,700)}
 
 $('btnStart').onclick=async()=>{
   try{
     if(!landmarker)await initCamera();
-    G.alive=true;poseLoop();lastF=performance.now();requestAnimationFrame(loop);
-    startRound();
+    alive=true;poseLoop();lastF=performance.now();requestAnimationFrame(loop);
+    F.kos=0;F.landed=0;F.thrown=0;F.dodges=0;F.eaten=0;F.myHP=100;
+    startFight(0);
   }catch(e){
-    $('startStatus').textContent='Camera failed ('+e.message+'). Use Safari/Chrome on localhost or https.';
+    $('startStatus').textContent='Camera failed ('+e.message+'). Use Safari/Chrome, allow camera.';
   }
 };
-$('btnAgain').onclick=()=>startRound();
-G.alive=true;requestAnimationFrame(loop);
+$('btnAgain').onclick=()=>{F.kos=0;F.landed=0;F.thrown=0;F.dodges=0;F.eaten=0;F.myHP=100;startFight(0)};
+alive=true;requestAnimationFrame(loop);
+// ?demo — watch the opponent AI without a camera (no inputs)
+if(location.search.includes('demo')){$('startOv').classList.add('hidden');startFight(0)}
 </script>
 </body>
 </html>
