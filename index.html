@@ -63,16 +63,48 @@
   @keyframes vspin{to{transform:rotate(360deg)}}
   #vsPriv{display:flex;gap:10px}
   #vsPriv button{font-size:13px;padding:10px 14px}
+  .btncol{position:fixed;top:104px;right:14px;z-index:9;display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+  .mini{font-size:13px;padding:9px 13px;border-radius:11px}
+  .mini.on{background:var(--magenta);box-shadow:0 4px 0 #a3266b;color:#fff}
+  .kd{font-size:11px;letter-spacing:2px;margin-top:2px}
+  #bootSpin{width:28px;height:28px;border-radius:50%;border:4px solid #2a3357;
+    border-top-color:var(--cyan);animation:vspin .8s linear infinite}
+  #shareBar{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:15;
+    font-size:16px;padding:13px 24px;background:var(--magenta);box-shadow:0 6px 0 #a3266b;
+    white-space:nowrap;color:#fff}
+  #filterRow{position:fixed;top:40%;left:50%;transform:translate(-50%,-50%);z-index:13;display:flex;gap:6px;
+    background:rgba(11,14,26,.8);padding:8px;border-radius:14px}
+  #filterRow button{font-size:20px;padding:6px 10px;background:var(--tunnel);border:1px solid #2a3357;
+    border-radius:10px;box-shadow:none;color:#fff}
+  #filterRow button.sel{border-color:var(--lime)}
+  .lbtitle{font-family:'Bungee',cursive;color:var(--magenta);font-size:17px}
+  #homeLb{list-style:none;background:var(--tunnel);border:1px solid #2a3357;border-radius:14px;
+    padding:12px 20px;min-width:270px;max-width:330px;text-align:left}
+  #homeLb li{display:flex;justify-content:space-between;gap:20px;padding:4px 0;
+    font-size:15px;border-bottom:1px solid #222a4a}
+  #homeLb li:last-child{border-bottom:none}
+  #homeLb .lbscore{color:var(--cyan);font-family:'Bungee',cursive}
+  #homeLb .rk{color:#8892b8;margin-right:8px}
+  #wrank{font-family:'Bungee',cursive;color:var(--cyan);font-size:15px}
 </style>
 </head>
 <body>
 <canvas id="ring"></canvas>
 <div id="bars">
   <div class="hpwrap"><div class="hpname" style="color:var(--lime)" id="nameMe">YOU</div>
-    <div class="hp" id="hpMe"><div class="ghost"></div><div class="fill"></div></div></div>
+    <div class="hp" id="hpMe"><div class="ghost"></div><div class="fill"></div></div>
+    <div class="kd" id="kdMe"></div></div>
   <div class="hpwrap"><div class="hpname" style="color:var(--magenta);text-align:right" id="nameOp">BRUTUS · LV 1</div>
-    <div class="hp" id="hpOp"><div class="ghost"></div><div class="fill"></div></div></div>
+    <div class="hp" id="hpOp"><div class="ghost"></div><div class="fill"></div></div>
+    <div class="kd" id="kdOp" style="text-align:right"></div></div>
 </div>
+<div class="btncol">
+  <button id="btnSnd" class="mini alt">🔊 ON</button>
+  <button id="btnRec" class="mini alt">⏺ CLIP</button>
+  <button id="btnLay" class="mini alt hidden">📷 CAM: BIG</button>
+</div>
+<button id="shareBar" class="hidden">🎬 CLIP READY — SAVE / SHARE</button>
+<div id="filterRow" class="hidden"></div>
 <div id="roundTag"></div>
 <div id="combo"></div>
 <div id="banner"></div>
@@ -96,8 +128,11 @@
   <input id="playerName" placeholder="YOUR NAME" maxlength="12" autocomplete="off">
   <button id="btnStart">🤖 SOLO — FIGHT THE CPU</button>
   <button id="btnVs" class="alt">⚔️ MULTIPLAYER — FIGHT A REAL PLAYER</button>
-  <div class="status" id="startStatus"></div>
-  <div style="font-size:13px;color:#6f7aa6">Prototype — solo: camera stays on device. Multiplayer: you choose what to share.</div>
+  <div style="display:flex;align-items:center;gap:10px"><div id="bootSpin" class="hidden"></div>
+    <div class="status" id="startStatus"></div></div>
+  <div style="font-size:13px;color:#6f7aa6">Solo: camera stays on device. Multiplayer: you choose what to share. 3 knockdowns = TKO.</div>
+  <div class="lbtitle" style="margin-top:14px">🌍 WORLD TOP 20</div>
+  <ol id="homeLb"><li>…</li></ol>
 </div>
 
 <div class="overlay hidden" id="calOv">
@@ -124,6 +159,7 @@
 <div class="overlay hidden" id="endOv">
   <h1 id="endTitle"></h1>
   <p id="endStats"></p>
+  <p id="wrank"></p>
   <button id="btnRematch" class="hidden">🔁 REMATCH</button>
   <button id="btnAgain">🔔 FIGHT AGAIN</button>
 </div>
@@ -140,21 +176,37 @@ function resize(){W=innerWidth;H=innerHeight;cnv.width=W*devicePixelRatio;cnv.he
   ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0)}
 addEventListener('resize',resize);resize();
 
-/* ---- sfx ---- */
-let AC=null;const ac=()=>AC||(AC=new (window.AudioContext||window.webkitAudioContext)());
+/* ---- sfx (through a master bus: mutable + recordable) ---- */
+let AC=null,master=null,musicOn=true;
+function ac(){if(!AC){AC=new (window.AudioContext||window.webkitAudioContext)();
+  master=AC.createGain();master.gain.value=1;master.connect(AC.destination)}return AC}
 function tone(f,type,a,d,peak,slide){const c=ac(),t0=c.currentTime,o=c.createOscillator(),g=c.createGain();
   o.type=type;o.frequency.setValueAtTime(f,t0);
   if(slide)o.frequency.exponentialRampToValueAtTime(slide,t0+a+d);
   g.gain.setValueAtTime(0,t0);g.gain.linearRampToValueAtTime(peak,t0+a);
   g.gain.exponentialRampToValueAtTime(.001,t0+a+d);
-  o.connect(g).connect(c.destination);o.start(t0);o.stop(t0+a+d+.05)}
+  o.connect(g).connect(master);o.start(t0);o.stop(t0+a+d+.05)}
 function noise(d,peak,hp){const c=ac(),t0=c.currentTime;
   const b=c.createBuffer(1,c.sampleRate*d,c.sampleRate),ch=b.getChannelData(0);
   for(let i=0;i<ch.length;i++)ch[i]=Math.random()*2-1;
   const src=c.createBufferSource();src.buffer=b;
   const f=c.createBiquadFilter();f.type='highpass';f.frequency.value=hp;
   const g=c.createGain();g.gain.setValueAtTime(peak,t0);g.gain.exponentialRampToValueAtTime(.001,t0+d);
-  src.connect(f);f.connect(g);g.connect(c.destination);src.start(t0)}
+  src.connect(f);f.connect(g);g.connect(master);src.start(t0)}
+/* fight music: dark driving beat */
+let musicT=null,mstep=0;
+function startMusic(){
+  if(musicT||!musicOn)return;ac();
+  musicT=setInterval(()=>{
+    const s=mstep++;
+    if(s%8===0)tone(55,'square',.005,.15,.18,40);
+    if(s%8===4)tone(65.4,'square',.005,.15,.18,46);
+    if(s%2===0)noise(.03,.035,6000);
+    if(s%16===8)noise(.13,.11,1400);
+    if(s%32===24)[110,130.8,164.8,196].forEach((f,i)=>setTimeout(()=>tone(f,'triangle',.01,.12,.05),i*70));
+  },143);
+}
+function stopMusic(){if(musicT){clearInterval(musicT);musicT=null}}
 /* crowd bed: looping filtered noise, volume rides the action */
 let crowdSrc=null,crowdGain=null,crowdEx=0;
 function ensureCrowd(){
@@ -164,7 +216,7 @@ function ensureCrowd(){
   crowdSrc=c.createBufferSource();crowdSrc.buffer=b;crowdSrc.loop=true;
   const f=c.createBiquadFilter();f.type='bandpass';f.frequency.value=450;f.Q.value=.6;
   crowdGain=c.createGain();crowdGain.gain.value=0;
-  crowdSrc.connect(f);f.connect(crowdGain);crowdGain.connect(c.destination);crowdSrc.start();
+  crowdSrc.connect(f);f.connect(crowdGain);crowdGain.connect(master);crowdSrc.start();
 }
 const SFX={
   land(){tone(140,'square',.005,.11,.32,60);noise(.08,.14,900)},
@@ -185,23 +237,26 @@ const SFX={
 /* ---- pose ---- */
 let landmarker=null,video=$('cam'),skel=$('skel'),sctx=skel.getContext('2d');
 async function initCamera(){
-  $('startStatus').textContent='Loading pose model…';
+  $('bootSpin').classList.remove('hidden');
+  $('startStatus').textContent='Loading the game engine… ⚙️';
   const files=await FilesetResolver.forVisionTasks(
     'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm');
   const lmk=await PoseLandmarker.createFromOptions(files,{
     baseOptions:{modelAssetPath:
       'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',
       delegate:'GPU'},runningMode:'VIDEO',numPoses:1});
-  $('startStatus').textContent='Requesting camera…';
+  $('startStatus').textContent='A window will pop up — tap ALLOW to use your camera 📷';
   const stream=await navigator.mediaDevices.getUserMedia({video:{width:480,height:360},audio:true});
   micTrack=stream.getAudioTracks()[0]||null;
   video.srcObject=stream;
   await new Promise(r=>video.onloadedmetadata=r);
   skel.width=video.videoWidth;skel.height=video.videoHeight;
   $('camwrap').classList.remove('hidden');
+  $('bootSpin').classList.add('hidden');$('startStatus').textContent='';
   landmarker=lmk; // cache only after the whole chain succeeded — a denied camera can be retried
 }
 let micTrack=null;
+const pose={face:null};
 
 /* ---- input ---- */
 const hands={
@@ -244,6 +299,7 @@ function poseLoop(){
   if(res.landmarks&&res.landmarks[0]){
     const lm=res.landmarks[0];
     const dt=Math.min(.1,(now-lastPose)/1000)||.033;lastPose=now;
+    pose.face={x:lm[0].x,y:lm[0].y,w:Math.max(.06,Math.abs(lm[7].x-lm[8].x))};
     shoulderW=Math.max(.08,Math.abs(lm[11].x-lm[12].x));
     const mid=1-((lm[11].x+lm[12].x)/2);
     const shY=(lm[11].y+lm[12].y)/2;
@@ -373,7 +429,8 @@ const OPPONENTS=[
 const F={state:'idle',mode:'solo',lvl:0,op:null,phase:'guard',phaseT:0,punchSide:null,dodged:false,blocked:false,
   combo:0,comboT:0,pvpType:'jab',
   anim:{guard:1,ext:0,extSide:'L',hurt:0,hurtUp:0,bob:0,slump:0,knock:0,gRattle:0,wob:0,gut:0},
-  kos:0,landed:0,thrown:0,dodges:0,blocks:0,tut:0,roundT:90,lastSec:-1};
+  kos:0,landed:0,thrown:0,dodges:0,blocks:0,tut:0,roundT:90,lastSec:-1,myKd:0,opKd:0};
+function kdUI(){$('kdMe').textContent='🔻'.repeat(F.myKd);$('kdOp').textContent='🔻'.repeat(F.opKd)}
 let streak=0;try{streak=+localStorage.getItem('bx_streak')||0}catch(e){}
 const beltFor=s=>s>=20?'💎':s>=10?'🏆':s>=5?'🥈':s>=3?'🥉':'';
 function bumpStreak(won){streak=won?streak+1:0;
@@ -393,7 +450,9 @@ function startFight(lvl){
   bars.op.max=F.op.hp;bars.op.v=F.op.hp;bars.op.g=F.op.hp;
   if(lvl===0){bars.me.v=100;bars.me.g=100}else{bars.me.v=Math.min(100,bars.me.v+25)}
   F.state='fight';F.phase='guard';F.phaseT=lvl===0?2.2:1.2;F.combo=0;
-  F.roundT=90;F.lastSec=-1;
+  F.roundT=90;F.lastSec=-1;F.myKd=0;F.opKd=0;kdUI();
+  startMusic();
+  if(rec.armed&&!rec.active){rec.armed=false;startRec()}
   Object.assign(F.anim,{guard:1,ext:0,hurt:0,hurtUp:0,slump:0,knock:0,gRattle:0,wob:0,gut:0});
   F.tut=lvl===0?1:0;
   ensureCrowd();
@@ -416,7 +475,7 @@ function playerPunch(hand,type){
   if(type==='body'){ // digs under the guard — always lands, smaller damage
     const dmg=F.phase==='stagger'?9:6;
     landOnOpponent(hx,dmg,{body:true,stag:F.phase==='stagger'});
-    if(bars.op.v<=0)return koOpponent();
+    if(bars.op.v<=0)return opponentDown();
     if(F.combo>=3&&F.phase!=='stagger'){
       F.phase='stagger';F.phaseT=2.1;F.combo=0;$('combo').textContent='';
       pop(W/2,H*.18,'STAGGERED!','#ffb03e',true);SFX.stagger();
@@ -430,7 +489,7 @@ function playerPunch(hand,type){
     const dmg=(stag?16:counter?13:10)+(isU?4:0);
     landOnOpponent(hx,dmg,{counter,stag,upper:isU});
     if(!stag&&F.phase!=='hurt'){F.phase='hurt';F.phaseT=.42} // no infinite stunlock by re-tagging hurt
-    if(bars.op.v<=0)return koOpponent();
+    if(bars.op.v<=0)return opponentDown();
     if(F.combo>=3&&F.phase!=='stagger'){
       F.phase='stagger';F.phaseT=2.1;F.combo=0;$('combo').textContent='';
       pop(W/2,H*.18,'STAGGERED!','#ffb03e',true);SFX.stagger();
@@ -470,15 +529,24 @@ function blockedOnOpponent(hx,fxOnly){
   burst(hx,H*.35,'#8892b8',7,.7);
   pop(hx,H*.30,'BLOCKED','#8892b8');
   SFX.clank();
-  if(!fxOnly&&bars.op.v<=0)return koOpponent();
+  if(!fxOnly&&bars.op.v<=0)return opponentDown();
+}
+function opponentDown(){ // he hit the canvas — TKO at 3 knockdowns
+  F.opKd++;kdUI();
+  if(F.opKd>=3||F.mode==='pvp')return koOpponent(); // pvp downs arrive via 'kd'/'ko' events
+  F.state='down';F.phaseT=2.0;F.anim.slump=0;
+  FX.slow=.8;addShake(1.1);crowdEx=1;
+  banner('⬇ HE\'S DOWN! '+F.opKd+'/3','#c8ff3e');SFX.stagger();
 }
 function koOpponent(){
   F.kos++;F.state='ko';F.phaseT=2.4;F.anim.slump=0;$('combo').textContent='';
   hitStop(.16);addShake(1.3);FX.slow=1.2;crowdEx=1.2; // the final blow lands in slow motion, crowd erupts
   impactRing(W/2,H*.3,'#fff');
   burst(W/2,H*.3,'#c8ff3e',32,1.9);burst(W/2,H*.3,'#ffb03e',22,1.5);
-  banner('💥 K.O.!','#c8ff3e');SFX.win();
+  banner(F.opKd>=3?'💥 T.K.O.!':'💥 K.O.!','#c8ff3e');SFX.win();
   if(F.mode==='pvp'){
+    stopMusic();
+    if(rec.active){rec.endCard={name:playerName,score:'WINNER 🏆'};setTimeout(stopRec,1800)}
     if(VS.int){clearInterval(VS.int);VS.int=null} // stop broadcasting after the match
     VS.koT=setTimeout(()=>{
       VS.koT=null;
@@ -506,23 +574,38 @@ function opponentLands(dmg,o){
   if(navigator.vibrate)navigator.vibrate(170);
   F.combo=0;$('combo').textContent='';
   if(bars.me.v<=0){
-    F.state='over';SFX.ko();FX.slow=1;
+    F.myKd++;kdUI();
+    if(F.myKd<3){ // you're down — beat the count, back up with 30 HP
+      bars.me.v=30;bars.me.g=30;
+      FX.slow=.8;addShake(1.2);
+      pop(W/2,H*.45,'KNOCKDOWN! GET UP! 🥊','#ffb03e',true);
+      banner('KNOCKDOWN '+F.myKd+'/3','#ff3ea5');SFX.stagger();
+      if(F.mode==='pvp'){try{VS.chan&&VS.chan.send({type:'broadcast',event:'kd',payload:{n:F.myKd,from:VS.me}})}catch(e){}}
+      return;
+    }
+    F.state='over';SFX.ko();FX.slow=1;stopMusic();
     if(F.mode==='pvp'){
       bumpStreak(0);
       if(VS.int){clearInterval(VS.int);VS.int=null}
       try{VS.chan&&VS.chan.send({type:'broadcast',event:'ko',payload:{from:VS.me}})}catch(e){}
     }
-    $('endTitle').innerHTML='<span class="m">KNOCKED</span> OUT';
+    $('endTitle').innerHTML='<span class="m">TKO</span> 💀';
     $('endStats').innerHTML=endLine();
     if(F.mode==='pvp'){
       $('btnRematch').disabled=false;$('btnRematch').textContent='🔁 REMATCH';
       $('btnRematch').classList.remove('hidden');
+    }else{
+      const sc=F.kos*1000+F.landed*10;
+      $('endStats').innerHTML+=' · Score <b style="color:var(--lime)">'+sc+'</b>';
+      submitScore(sc);
     }
+    if(rec.active){rec.endCard={name:playerName,score:F.kos+' KO · '+F.landed+' HITS'};setTimeout(stopRec,1600)}
     setTimeout(()=>$('endOv').classList.remove('hidden'),700);
   }
 }
 function decision(){
-  SFX.bell();banner('🔔 FINAL BELL','#c8ff3e');
+  SFX.bell();banner('🔔 FINAL BELL','#c8ff3e');stopMusic();
+  if(rec.active){rec.endCard={name:playerName,score:F.kos+' KO · '+F.landed+' HITS'};setTimeout(stopRec,1600)}
   const my=bars.me.v/bars.me.max,op=bars.op.v/bars.op.max;
   const draw=Math.abs(my-op)<=.004,win=!draw&&my>op;
   if(VS.int){clearInterval(VS.int);VS.int=null}
@@ -539,6 +622,11 @@ function decision(){
     :win?'<span style="color:var(--lime)">WON ON POINTS</span> 🥊'
     :'<span class="m">LOST ON POINTS</span> 📉';
   $('endStats').innerHTML=endLine()+(F.mode==='pvp'?streakLine():'');
+  if(F.mode==='solo'){
+    const sc=F.kos*1000+F.landed*10;
+    $('endStats').innerHTML+=' · Score <b style="color:var(--lime)">'+sc+'</b>';
+    submitScore(sc);
+  }
   if(F.mode==='pvp'){
     $('btnRematch').disabled=false;$('btnRematch').textContent='🔁 REMATCH';
     $('btnRematch').classList.remove('hidden');
@@ -574,6 +662,16 @@ function think(dt){
     A.slump=Math.min(1,A.slump+dt*.85);
     F.phaseT-=dt;
     if(F.mode==='solo'&&F.phaseT<=0)startFight(F.lvl+1);
+    return;
+  }
+  if(F.state==='down'){ // knockdown: he falls… and gets back up with 30 HP
+    F.phaseT-=dt;
+    A.slump=F.phaseT>1?Math.min(.85,A.slump+dt*1.6):Math.max(0,A.slump-dt*1.4);
+    if(F.phaseT<=0){
+      bars.op.v=30;bars.op.g=30;
+      F.state='fight';F.phase='guard';F.phaseT=1.2;A.slump=0;
+      banner('HE GETS UP 😤','#ffb03e');
+    }
     return;
   }
   if(F.state!=='fight')return;
@@ -685,7 +783,7 @@ function drawOpponent(){
     ctx.beginPath();ctx.arc(cx,cy,u*.105,0,7);ctx.stroke();
     ctx.globalAlpha=1;
   }
-  const ko=F.state==='ko',ey=cy-u*.012,eo=u*.032;
+  const ko=F.state==='ko'||(F.state==='down'&&A.slump>.3),ey=cy-u*.012,eo=u*.032;
   ctx.fillStyle='#0b0e1a';ctx.strokeStyle='#0b0e1a';
   if(ko||F.phase==='stagger'){
     ctx.lineWidth=4;
@@ -778,6 +876,178 @@ function drawDodgeCue(){
   ctx.fillText('🛡 FISTS UP — OR LEAN!',W/2,H*.62);
 }
 
+/* ---- sound toggle ---- */
+$('btnSnd').onclick=e=>{
+  musicOn=!musicOn;
+  e.currentTarget.textContent=musicOn?'🔊 ON':'🔇 OFF';
+  if(!musicOn)stopMusic();else if(F.state==='fight')startMusic();
+  if(master)master.gain.value=musicOn?1:0;
+};
+
+/* ---- world leaderboard ---- */
+const LBURL='https://dpdrlmnofnhzktkbevug.supabase.co/rest/v1/cardio_scores_box';
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+async function loadHomeLB(){
+  try{
+    const r=await fetch(LBURL+'?select=name,score&order=score.desc&limit=20',{headers:LBH()});
+    const top=await r.json();
+    $('homeLb').innerHTML=top.length?top.map((e,i)=>
+      '<li><span><span class="rk">'+(i+1)+'.</span>'+esc(e.name)+'</span><span class="lbscore">'+e.score+'</span></li>').join('')
+      :'<li>No fights yet — be the first!</li>';
+  }catch(e){$('homeLb').innerHTML='<li>Leaderboard offline</li>'}}
+function LBH(){return {apikey:SBK,Authorization:'Bearer '+SBK,'Content-Type':'application/json'}}
+async function worldCount(f){
+  const r=await fetch(LBURL+'?select=id'+f+'&limit=1',{headers:{...LBH(),Prefer:'count=exact'}});
+  return parseInt((r.headers.get('content-range')||'/0').split('/')[1])||0}
+function submitScore(sc){
+  if(sc<=0)return;
+  fetch(LBURL,{method:'POST',headers:LBH(),body:JSON.stringify({name:playerName.slice(0,12),score:Math.min(sc,1000000)})})
+    .then(async()=>{
+      const above=await worldCount('&score=gt.'+sc),total=await worldCount('');
+      $('wrank').textContent='🌍 WORLD RANK #'+(above+1)+' OF '+total;
+      loadHomeLB();
+    }).catch(()=>{});
+}
+
+/* ---- clip recorder: watermark + face filters + share sheet ---- */
+const rec={armed:false,active:false,layout:'pip',filter:null,lastClip:null,chunks:[],mime:''};
+try{rec.filter=localStorage.getItem('bx_filter')||null}catch(e){}
+const FILTERS=['🚫','😎','🤖','👽','🐸'];
+let filterCb=null;
+function askFilter(cb){
+  filterCb=cb;
+  $('filterRow').innerHTML='<div style="font-family:Bungee,cursive;font-size:13px;align-self:center;color:var(--cyan);padding:0 4px">FACE FILTER?</div>'
+    +FILTERS.map(f=>'<button data-f="'+f+'"'+((f==='🚫'?!rec.filter:rec.filter===f)?' class="sel"':'')
+    +(f==='🚫'?' style="font-family:Bungee,cursive;font-size:12px">NO FILTER':'>'+f)+'</button>').join('');
+  $('filterRow').classList.remove('hidden');
+}
+$('filterRow').onclick=e=>{
+  const b=e.target.closest('button');if(!b)return;
+  rec.filter=b.dataset.f==='🚫'?null:b.dataset.f;
+  try{localStorage.setItem('bx_filter',rec.filter||'')}catch(e2){}
+  $('filterRow').classList.add('hidden');
+  const cb=filterCb;filterCb=null;if(cb)cb();
+};
+function startRec(){
+  rec.cnv=document.createElement('canvas');rec.cnv.width=720;rec.cnv.height=1280;
+  rec.ctx=rec.cnv.getContext('2d');
+  rec.lastClip=null;rec.endCard=null;$('shareBar').classList.add('hidden');
+  const c=ac();
+  rec.dest=c.createMediaStreamDestination();
+  master.connect(rec.dest);
+  if(micTrack){rec.micSrc=c.createMediaStreamSource(new MediaStream([micTrack]));rec.micSrc.connect(rec.dest)}
+  const stream=new MediaStream([
+    ...rec.cnv.captureStream(30).getVideoTracks(),
+    ...rec.dest.stream.getAudioTracks()]);
+  rec.mime=MediaRecorder.isTypeSupported('video/mp4')?'video/mp4'
+    :MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')?'video/webm;codecs=vp9,opus':'video/webm';
+  rec.mr=new MediaRecorder(stream,{mimeType:rec.mime,videoBitsPerSecond:6000000});
+  rec.chunks=[];
+  rec.mr.ondataavailable=e=>{if(e.data.size)rec.chunks.push(e.data)};
+  rec.mr.onstop=saveClip;
+  rec.mr.start();rec.active=true;
+  $('btnLay').classList.remove('hidden');
+  $('btnRec').textContent='⏺ REC…';$('btnRec').classList.add('on');
+  drawRec();
+}
+function drawFilter(c,vx,vy,dw,dh){
+  if(!rec.filter||!pose.face)return;
+  const fs=pose.face.w*dw*1.9;
+  c.font=fs+'px serif';c.textAlign='center';c.textBaseline='middle';
+  c.save();c.translate(vx+pose.face.x*dw,vy+pose.face.y*dh);c.scale(-1,1);
+  c.fillText(rec.filter,0,0);c.restore();
+}
+function drawRec(){
+  if(!rec.active)return;
+  const c=rec.ctx,RW=720,RH=1280,g=cnv;
+  c.fillStyle='#0b0e1a';c.fillRect(0,0,RW,RH);
+  if(rec.layout==='split'){
+    const camH=Math.round(RH*.44),gameH=RH-camH;
+    if(video.readyState>=2){
+      const vw=video.videoWidth,vh=video.videoHeight;
+      const sc=Math.max(RW/vw,camH/vh),dw=vw*sc,dh=vh*sc;
+      c.save();c.beginPath();c.rect(0,0,RW,camH);c.clip();
+      c.translate(RW,0);c.scale(-1,1);
+      const vx=(RW-dw)/2-(RW-dw),vy=(camH-dh)/2;
+      c.drawImage(video,vx,vy,dw,dh);
+      drawFilter(c,vx,vy,dw,dh);
+      c.restore();
+    }
+    const sc=Math.max(RW/g.width,gameH/g.height),dw=g.width*sc,dh=g.height*sc;
+    c.save();c.beginPath();c.rect(0,camH,RW,gameH);c.clip();
+    c.drawImage(g,(RW-dw)/2,camH+(gameH-dh)/2,dw,dh);c.restore();
+    c.fillStyle='#3ee8ff';c.fillRect(0,camH-3,RW,6);
+  }else{
+    const sc=Math.max(RW/g.width,RH/g.height),dw=g.width*sc,dh=g.height*sc;
+    c.drawImage(g,(RW-dw)/2,(RH-dh)/2,dw,dh);
+    if(video.readyState>=2){
+      const pw=230,ph=pw*video.videoHeight/video.videoWidth,px=18,py=RH-ph-170;
+      c.save();c.beginPath();c.rect(px,py,pw,ph);c.clip();
+      c.translate(px+pw,py);c.scale(-1,1);
+      c.drawImage(video,0,0,pw,ph);
+      drawFilter(c,0,0,pw,ph);
+      c.restore();
+      c.strokeStyle='#3ee8ff';c.lineWidth=5;c.strokeRect(px,py,pw,ph);
+    }
+  }
+  c.fillStyle='#c8ff3e';c.font='52px Bungee, sans-serif';c.textAlign='left';
+  c.fillText(F.landed+' HITS',26,84);
+  c.textAlign='center';
+  c.fillStyle='rgba(255,255,255,.95)';c.font='44px Bungee, sans-serif';
+  c.fillText('CARDIOBOXING',RW/2,RH-92);
+  c.fillStyle='rgba(62,232,255,.95)';c.font='26px Bungee, sans-serif';
+  c.fillText('PLAY FREE AT CARDIO.SURF',RW/2,RH-46);
+  if(rec.endCard){
+    c.fillStyle='rgba(11,14,26,.75)';c.fillRect(0,0,RW,RH);
+    c.textAlign='center';
+    c.fillStyle='#f2f4ff';c.font='40px Bungee, sans-serif';
+    c.fillText(rec.endCard.name,RW/2,RH*.34);
+    c.fillStyle='#c8ff3e';c.font='72px Bungee, sans-serif';
+    c.fillText(rec.endCard.score,RW/2,RH*.48);
+    c.fillStyle='#f2f4ff';c.font='40px Bungee, sans-serif';
+    c.fillText('CARDIOBOXING',RW/2,RH*.58);
+    c.fillStyle='#3ee8ff';c.font='30px Bungee, sans-serif';
+    c.fillText('PLAY FREE AT CARDIO.SURF',RW/2,RH*.64);
+  }
+  rec.raf=requestAnimationFrame(drawRec);
+}
+function stopRec(){
+  if(!rec.active)return;rec.active=false;cancelAnimationFrame(rec.raf);rec.mr.stop();
+  try{master.disconnect(rec.dest)}catch(e){}
+  try{rec.micSrc&&rec.micSrc.disconnect()}catch(e){}
+  $('filterRow').classList.add('hidden');
+  $('btnLay').classList.add('hidden');
+  $('btnRec').textContent='⏺ CLIP';$('btnRec').classList.remove('on');
+}
+function saveClip(){
+  rec.lastClip={blob:new Blob(rec.chunks,{type:rec.mime}),
+    name:'cardioboxing-clip.'+(rec.mime.includes('mp4')?'mp4':'webm')};
+  $('shareBar').classList.remove('hidden');
+}
+function dlClip(c){const a=document.createElement('a');
+  a.href=URL.createObjectURL(c.blob);a.download=c.name;a.click()}
+$('shareBar').onclick=()=>{
+  const c=rec.lastClip;if(!c)return;
+  const file=new File([c.blob],c.name,{type:c.blob.type||rec.mime});
+  if(navigator.canShare&&navigator.canShare({files:[file]})){
+    navigator.share({files:[file]})
+      .then(()=>$('shareBar').classList.add('hidden'))
+      .catch(e=>{if(e&&e.name!=='AbortError')dlClip(c)});
+  }else{dlClip(c);$('shareBar').classList.add('hidden')}
+};
+$('btnRec').onclick=e=>{
+  if(F.state!=='fight'){
+    if(rec.armed){rec.armed=false;$('btnRec').classList.remove('on');$('btnRec').textContent='⏺ CLIP'}
+    else askFilter(()=>{rec.armed=true;$('btnRec').classList.add('on');$('btnRec').textContent='⏺ ARMED';
+      banner('RECORDING STARTS WITH THE FIGHT!','#ff3ea5')});
+  }else{rec.active?stopRec():askFilter(startRec)}
+  e.currentTarget.blur();
+};
+$('btnLay').onclick=e=>{
+  rec.layout=rec.layout==='split'?'pip':'split';
+  e.currentTarget.textContent=rec.layout==='split'?'📷 CAM: BIG':'📷 CAM: SMALL';
+};
+
 /* ---- multiplayer (supabase realtime + webrtc, same stack as cardio.surf) ---- */
 const SBK='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRwZHJsbW5vZm5oemt0a2JldnVnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxMDExNTksImV4cCI6MjA4NzY3NzE1OX0.2AW07k706Fmzfm5kLSfeMwfigDXxXF1022-4cHCl_W8';
 const sbc=createClient('https://dpdrlmnofnhzktkbevug.supabase.co',SBK);
@@ -858,7 +1128,14 @@ function vsJoinRoom(roomId,oppName,isHost){
   });
   VS.chan.on('broadcast',{event:'ko'},({payload:p})=>{
     if(!p||p.from!==VS.oppKey||F.state!=='fight')return;
+    F.opKd=3;kdUI();
     koOpponent();
+  });
+  VS.chan.on('broadcast',{event:'kd'},({payload:p})=>{
+    if(!p||p.from!==VS.oppKey||F.state!=='fight')return;
+    F.opKd=Math.min(2,p.n||F.opKd+1);kdUI();
+    banner('⬇ '+VS.oppName+' IS DOWN! '+F.opKd+'/3','#c8ff3e');
+    crowdEx=1;SFX.stagger();
   });
   VS.chan.on('broadcast',{event:'rem'},({payload:p})=>{
     if(!p||p.from!==VS.oppKey)return;
@@ -902,7 +1179,9 @@ function vsStartMatch(){
   $('btnRematch').disabled=false;$('btnRematch').textContent='🔁 REMATCH';
   F.mode='pvp';F.state='fight';F.phase='guard';F.phaseT=999;F.combo=0;
   F.op=null;F.pvpType='jab';
-  F.roundT=90;F.lastSec=-1;
+  F.roundT=90;F.lastSec=-1;F.myKd=0;F.opKd=0;kdUI();
+  startMusic();
+  if(rec.armed&&!rec.active){rec.armed=false;startRec()}
   ensureCrowd();
   Object.assign(F.anim,{guard:1,ext:0,hurt:0,hurtUp:0,slump:0,knock:0,gRattle:0,wob:0,gut:0});
   bars.me.v=100;bars.me.g=100;bars.op.max=100;bars.op.v=100;bars.op.g=100;
@@ -992,6 +1271,7 @@ function vsCleanup(){
   if(VS.chan){sbc.removeChannel(VS.chan);VS.chan=null}
   if(VS.lobby){sbc.removeChannel(VS.lobby);VS.lobby=null}
   VS.on=false;VS.paired=false;VS.remMe=false;VS.remOpp=false;VS.swingQ=[];
+  stopMusic();
   vsStopRtc();
   $('vsOv').classList.add('hidden');
   F.mode='solo';F.state='idle';
@@ -1024,7 +1304,7 @@ function loop(now){
   ctx.strokeStyle='rgba(62,232,255,.14)';ctx.lineWidth=3;
   for(let i=0;i<3;i++){ctx.beginPath();ctx.moveTo(0,H*.62+i*34);ctx.lineTo(W,H*.62+i*34);ctx.stroke()}
   if(F.op||F.mode==='pvp'){think(dt);drawOpponent();drawDodgeCue()}
-  if(F.state==='fight'||F.state==='ko')drawPlayerGloves(rdt);
+  if(F.state==='fight'||F.state==='ko'||F.state==='down')drawPlayerGloves(rdt);
   drawFx(rdt);
   ctx.restore();
   // danger heartbeat when you're nearly out
@@ -1057,7 +1337,8 @@ async function beginCalibrated(cb){
     $('calOv').classList.remove('hidden');
     return true;
   }catch(e){
-    $('startStatus').textContent='Camera failed ('+e.message+'). Use Safari/Chrome, allow camera.';
+    $('bootSpin').classList.add('hidden');
+    $('startStatus').textContent='Camera failed ('+e.message+'). Allow camera access and try again.';
     return false;
   }
 }
@@ -1081,6 +1362,7 @@ if(location.search.includes('demo')){$('startOv').classList.add('hidden');startF
 if(location.search.includes('vstest'))window.bxTest={
   go:()=>{grabName();VS.on=true;$('startOv').classList.add('hidden');vsEnterLobby()},
   punch:t=>playerPunch('R',t||'jab'),VS,F,bars};
+loadHomeLB();
 </script>
 </body>
 </html>
