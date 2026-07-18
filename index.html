@@ -316,11 +316,16 @@ function poseLoop(){
       &&Math.abs(lm[15].x-lm[16].x)<shoulderW*1.7;
     if(cal.active&&!cal.done){
       const vis=i=>(lm[i].visibility==null||lm[i].visibility>.5)&&lm[i].x>0&&lm[i].x<1&&lm[i].y>0&&lm[i].y<1;
-      const bodyOk=vis(11)&&vis(12)&&vis(23)&&vis(24)&&vis(15)&&vis(16);
+      const shOk=vis(11)&&vis(12),handL=vis(15),handR=vis(16),hipsOk=vis(23)&&vis(24);
+      const bodyOk=shOk&&hipsOk&&handL&&handR;
       if(bodyOk){cal.seen=true;cal.lastMid=mid}
       if(!bodyOk){
         cal.samples=0;$('camwrap').classList.remove('good');
-        $('calStatus').textContent='Step back — chest, hips and BOTH fists in frame';
+        $('calStatus').textContent=
+          !shOk?'Step back — I need to see your chest'
+          :(handL!==handR)?'👐 Show BOTH hands — match the outline!'
+          :(!handL)?'👐 Hands up — I can’t see them'
+          :'Step back a little — hips in the frame too';
         $('calFill').style.width='0%';
       }else if(!guardUp){
         cal.samples=0;$('camwrap').classList.remove('good');
@@ -344,12 +349,14 @@ function poseLoop(){
       h.speed=h.speed*.4+(d/dt)*.6;
       h.vyN=h.vyN*.4+(((h.y-h.py)/dt)/Math.max(.1,shoulderW))*.6; // vertical speed in shoulder-widths/s
       h.pext=h.ext;h.ext=Math.hypot(w.x-s.x,w.y-s.y)/shoulderW;
+      h.vxN=(h.vxN||0)*.4+(((h.x-h.px)/dt)/Math.max(.1,shoulderW))*.6;
       h.cool=Math.max(0,h.cool-dt);
       if(F.state==='fight'&&h.cool<=0&&FX.stop<=0){ // no free hits inside frozen frames
         const upper=h.vyN<-5&&h.y<s.y+.25&&h.py>s.y+.05; // fist rocketing UP past the chest
         const jab=h.speed>1.5&&h.ext>1.0&&h.ext>h.pext+.035;
-        const body=jab&&h.y>s.y+.16&&!upper; // extended punch that stays LOW = body shot
-        if(upper||jab){
+        const hook=Math.abs(h.vxN)>4.2&&h.ext>.8&&h.y<s.y+.35; // lateral swing = hook (no extension needed)
+        const body=(jab||hook)&&h.y>s.y+.16&&!upper;
+        if(upper||jab||hook){
           h.cool=upper?.55:.36;h.anim=1;h.upper=upper?1:0;
           playerPunch(k,upper?'upper':(body?'body':'jab'));
         }
