@@ -56,12 +56,20 @@
   <h1><span class="c">CARDIO</span><span class="m">BOXING</span></h1>
   <p>A real fight, your body is the controller. Stand ~1.5 m back, chest and fists visible.</p>
   <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
-    <div class="ctl"><b>🥊 ATTACK</b>When a green target flashes on him, punch it — LEFT hand or RIGHT hand as marked</div>
+    <div class="ctl"><b>🥊 ATTACK</b>Punch anytime — his guard blocks most of it. When a green target flashes, hit it with the marked hand for BIG damage</div>
     <div class="ctl"><b>🙆 DODGE</b>When you see ⬅ DODGE ➡, lean your whole body to a side to slip his punch</div>
   </div>
   <button id="btnStart">🔔 FIGHT</button>
   <div class="status" id="startStatus"></div>
   <div style="font-size:13px;color:#6f7aa6">Prototype — nothing uploaded, camera stays on this device.</div>
+</div>
+
+<div class="overlay hidden" id="calOv">
+  <h1><span class="c">GET IN</span> <span class="m">STANCE</span></h1>
+  <p id="calStatus">Stand centered, fists up, chest visible…</p>
+  <div style="width:280px;height:14px;border:2px solid var(--cyan);border-radius:8px;overflow:hidden">
+    <div id="calFill" style="height:100%;width:0%;background:var(--lime)"></div>
+  </div>
 </div>
 
 <div class="overlay hidden" id="endOv">
@@ -94,6 +102,7 @@ const SFX={
   crit(){tone(180,'square',.005,.12,.32,60);tone(1319,'square',.01,.1,.15)},
   hurt(){tone(120,'sawtooth',.01,.25,.28,55)},
   swish(){tone(700,'sawtooth',.01,.14,.09,180)},
+  block(){tone(240,'square',.005,.07,.16,180)},
   dodge(){tone(988,'square',.01,.07,.13);tone(1319,'square',.06,.08,.13)},
   bell(){[880,880].forEach((f,i)=>setTimeout(()=>tone(f,'triangle',.01,.5,.25),i*350))},
   ko(){[392,330,262,196].forEach((f,i)=>setTimeout(()=>tone(f,'triangle',.02,.25,.22),i*150))},
@@ -124,6 +133,7 @@ const hands={
   R:{lm:16,sh:12,x:.65,y:.7,px:0,py:0,speed:0,ext:0,pext:0,cool:0,anim:0,seen:false}
 };
 let shoulderW=.2,lean=0,leanBase=null,lastPose=0;
+const cal={active:false,samples:[],done:false};
 
 function poseLoop(){
   if(!alive)return;
@@ -136,8 +146,19 @@ function poseLoop(){
     const dt=Math.min(.1,(now-lastPose)/1000)||.033;lastPose=now;
     shoulderW=Math.max(.08,Math.abs(lm[11].x-lm[12].x));
     const mid=1-((lm[11].x+lm[12].x)/2);
+    if(cal.active&&!cal.done){ // lock your stance: centered position becomes the zero point
+      cal.samples.push(mid);
+      $('calStatus').textContent='Hold still — locking your stance…';
+      $('calFill').style.width=Math.min(100,cal.samples.length*3.4)+'%';
+      if(cal.samples.length>=30){
+        leanBase=cal.samples.reduce((a,b)=>a+b,0)/cal.samples.length;
+        cal.done=true;cal.active=false;
+        $('calOv').classList.add('hidden');
+        startFight(0);
+      }
+    }
     if(leanBase==null)leanBase=mid;
-    leanBase+=(mid-leanBase)*Math.min(1,dt*.35);
+    leanBase+=(mid-leanBase)*Math.min(1,dt*.12); // gentle drift so walking a step re-centers slowly
     lean=(mid-leanBase)/shoulderW;
     for(const k of ['L','R']){
       const h=hands[k],w=lm[h.lm],s=lm[h.sh];
@@ -195,7 +216,7 @@ const OPPONENTS=[
 ];
 const F={state:'idle',lvl:0,op:null,opHP:0,myHP:100,phase:'guard',phaseT:0,
   opening:null,punchSide:null,dodged:false,
-  anim:{gL:1,gR:1,ext:0,extSide:'L',hurt:0,bob:0,slump:0,knock:0},
+  anim:{gL:1,gR:1,ext:0,extSide:'L',hurt:0,bob:0,slump:0,knock:0,block:0},
   kos:0,landed:0,thrown:0,dodges:0,eaten:0,tut:0,tutT:0};
 const rng=([a,b])=>a+Math.random()*(b-a);
 
@@ -241,7 +262,16 @@ function playerPunch(hand){
       return;
     }
   }
-  SFX.swish();
+  // no opening: you still connect — but his guard eats most of it
+  F.opHP-=2;F.landed++;
+  F.anim.block=1;
+  addShake(.2);
+  const u=Math.min(W,H);
+  burst(W/2+(hand==='L'?u*.1:-u*.1),H*.36,'#8892b8',6,.6);
+  pop(W/2,H*.24,'BLOCKED -2','#8892b8');
+  SFX.block();
+  updateBars();
+  if(F.opHP<=0)return koOpponent();
 }
 function koOpponent(){
   F.kos++;F.state='ko';F.phaseT=2.4;F.anim.slump=0;
@@ -273,6 +303,7 @@ function endLine(){
 function think(dt){
   const A=F.anim;
   A.bob+=dt*3.1;A.hurt=Math.max(0,A.hurt-dt*2.2);A.knock*=Math.max(0,1-dt*5);
+  A.block=Math.max(0,A.block-dt*5);
   if(F.state==='ko'){
     A.slump=Math.min(1,A.slump+dt*.85);
     F.phaseT-=dt;
@@ -367,6 +398,7 @@ function drawOpponent(){
 function glove(gx,gy,raise,side,hu,u){
   const A=F.anim;
   let x=gx,y=gy+(1-raise)*u*.16,r=u*.055;
+  if(A.block>0){x+=(Math.random()-.5)*A.block*10;y+=(Math.random()-.5)*A.block*10} // guard rattles when you thump it
   if(F.phase==='windup'&&F.punchSide===side){
     const k=1-F.phaseT/(F.op.windup*(F.tut?1.8:1));
     y+=k*u*.05;r*=1+k*.4;
@@ -466,7 +498,11 @@ $('btnStart').onclick=async()=>{
     if(!landmarker)await initCamera();
     alive=true;poseLoop();lastF=performance.now();requestAnimationFrame(loop);
     F.kos=0;F.landed=0;F.thrown=0;F.dodges=0;F.eaten=0;F.myHP=100;
-    startFight(0);
+    // calibrate stance first, then the bell rings (fight starts from the calibration callback)
+    cal.samples=[];cal.done=false;cal.active=true;
+    $('calFill').style.width='0%';
+    $('startOv').classList.add('hidden');
+    $('calOv').classList.remove('hidden');
   }catch(e){
     $('startStatus').textContent='Camera failed ('+e.message+'). Use Safari/Chrome, allow camera.';
   }
