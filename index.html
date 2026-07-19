@@ -68,6 +68,7 @@
   .btncol{position:fixed;top:104px;right:14px;z-index:9;display:flex;flex-direction:column;align-items:flex-end;gap:8px}
   .mini{font-size:13px;padding:9px 13px;border-radius:11px}
   .mini.on{background:var(--magenta);box-shadow:0 4px 0 #a3266b;color:#fff}
+  .mini.off{background:var(--magenta);box-shadow:0 4px 0 #a3266b;color:#fff}
   .kd{font-size:11px;letter-spacing:2px;margin-top:2px}
   #bootSpin{width:28px;height:28px;border-radius:50%;border:4px solid #2a3357;
     border-top-color:var(--cyan);animation:vspin .8s linear infinite}
@@ -115,6 +116,8 @@
   <button id="btnSnd" class="mini alt">🔊 ON</button>
   <button id="btnRec" class="mini alt">⏺ CLIP</button>
   <button id="btnLay" class="mini alt hidden">📷 CAM: BIG</button>
+  <button id="btnCamShare" class="mini alt hidden">📷 ON</button>
+  <button id="btnMicShare" class="mini alt hidden">🎤 ON</button>
 </div>
 <button id="shareBar" class="hidden" data-i="shareClip"></button>
 <div id="filterRow" class="hidden"></div>
@@ -1117,9 +1120,8 @@ const SBK='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6
 const sbc=createClient('https://dpdrlmnofnhzktkbevug.supabase.co',SBK);
 const VS={on:false,priv:false,privCode:'',isCreator:false,pendRoom:null,chan:null,lobby:null,me:'',oppKey:'',oppName:'RIVAL',oppGuard:true,
   int:null,roomTimer:null,koT:null,shareCam:true,shareMic:true,vSend:null,aSend:null,
-  remMe:false,remOpp:false,swingQ:[],badKeys:new Set(),rtcDead:false};
-try{VS.shareCam=localStorage.getItem('bx_shcam')!=='0';
-    VS.shareMic=localStorage.getItem('bx_shmic')!=='0'}catch(e){}
+  remMe:false,remOpp:false,swingQ:[],badKeys:new Set(),rtcDead:false,rtcT:null};
+VS.shareCam=true;VS.shareMic=true; // default ON every session — never silently stuck off
 let playerName='FIGHTER';
 function grabName(){const v=$('playerName').value.trim().toUpperCase();if(v)playerName=v;
   try{localStorage.setItem('bx_name',playerName)}catch(e){}}
@@ -1127,19 +1129,23 @@ try{const n=localStorage.getItem('bx_name');if(n)$('playerName').value=n}catch(e
 function privLabels(){
   $('tglCam').textContent=T(VS.shareCam?'camShown':'camHidden');
   $('tglMic').textContent=T(VS.shareMic?'micOn':'micOff');
+  const bc=$('btnCamShare'),bm=$('btnMicShare');
+  if(bc){bc.textContent=VS.shareCam?'📷 ON':'📷 OFF';bc.classList.toggle('off',!VS.shareCam)}
+  if(bm){bm.textContent=VS.shareMic?'🎤 ON':'🎤 OFF';bm.classList.toggle('off',!VS.shareMic)}
 }
-privLabels();
-$('tglCam').onclick=()=>{VS.shareCam=!VS.shareCam;
-  try{localStorage.setItem('bx_shcam',VS.shareCam?'1':'0')}catch(e){}
-  privLabels();
+function setShareCam(v){VS.shareCam=v;privLabels();
   if(VS.vSend){const vt=video.srcObject&&video.srcObject.getVideoTracks()[0];
-    VS.vSend.replaceTrack(VS.shareCam?(vt||null):null).catch(()=>{})}};
-$('tglMic').onclick=()=>{VS.shareMic=!VS.shareMic;
-  try{localStorage.setItem('bx_shmic',VS.shareMic?'1':'0')}catch(e){}
-  privLabels();
-  if(VS.aSend)VS.aSend.replaceTrack(VS.shareMic?(micTrack||null):null).catch(()=>{})};
+    VS.vSend.replaceTrack(VS.shareCam?(vt||null):null).catch(()=>{})}}
+function setShareMic(v){VS.shareMic=v;privLabels();
+  if(VS.aSend)VS.aSend.replaceTrack(VS.shareMic?(micTrack||null):null).catch(()=>{})}
+privLabels();
+$('tglCam').onclick=()=>setShareCam(!VS.shareCam);
+$('tglMic').onclick=()=>setShareMic(!VS.shareMic);
+$('btnCamShare').onclick=e=>{setShareCam(!VS.shareCam);e.currentTarget.blur()};
+$('btnMicShare').onclick=e=>{setShareMic(!VS.shareMic);e.currentTarget.blur()};
 
 function vsEnterLobby(){
+  VS.shareCam=true;VS.shareMic=true;privLabels();
   if(VS.lobby){sbc.removeChannel(VS.lobby);VS.lobby=null}
   $('vsStatus').textContent=T('searching');
   $('vsSpin').classList.remove('hidden');
@@ -1258,6 +1264,7 @@ function vsStartMatch(){
   F.kos=0;F.landed=0;F.thrown=0;F.dodges=0;F.blocks=0;
   $('nameOp').textContent=(VS.oppBelt?VS.oppBelt+' ':'')+VS.oppName;
   $('roundTag').textContent='⚔️ PVP';
+  $('btnCamShare').classList.remove('hidden');$('btnMicShare').classList.remove('hidden');
   banner('🔔 FIGHT '+VS.oppName+'!','#c8ff3e');SFX.bell();
   if(VS.int)clearInterval(VS.int);
   VS.int=setInterval(()=>{try{VS.chan&&VS.chan.send({type:'broadcast',event:'state',
@@ -1268,7 +1275,12 @@ let pc=null,pendIce=[];
 async function vsStartRtc(){
   try{
     if(pc||!VS.chan)return;
-    pc=new RTCPeerConnection({iceServers:[{urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302']}]});
+    pc=new RTCPeerConnection({iceServers:[
+      {urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302']},
+      {urls:'turn:openrelay.metered.ca:80',username:'openrelayproject',credential:'openrelayproject'},
+      {urls:'turn:openrelay.metered.ca:443',username:'openrelayproject',credential:'openrelayproject'},
+      {urls:'turn:openrelay.metered.ca:443?transport=tcp',username:'openrelayproject',credential:'openrelayproject'}
+    ]});
     const st=video.srcObject;
     const vt=st&&st.getVideoTracks()[0];
     VS.vSend=pc.addTransceiver('video',{direction:'sendrecv'}).sender;
@@ -1283,14 +1295,23 @@ async function vsStartRtc(){
     pc.onconnectionstatechange=()=>{
       if(!pc)return;
       if(pc.connectionState==='connected'){
+        if(VS.rtcT){clearTimeout(VS.rtcT);VS.rtcT=null}
         const v=$('oppVid');
         $('oppTag').textContent=VS.oppName;
         $('oppCam').classList.remove('hidden');
         v.play().catch(()=>{v.muted=true;$('oppMute').textContent='🔇';v.play().catch(()=>{})});
-      }else if(pc.connectionState==='failed')vsStopRtc(true); // dead network path — stay dead
+      }else if(pc.connectionState==='failed'){
+        if(VS.rtcT){clearTimeout(VS.rtcT);VS.rtcT=null}
+        banner('📵 '+VS.oppName+' — video couldn’t connect (network). Game still works!','#ff3ea5');
+        vsStopRtc(true);
+      } // dead network path — stay dead
     };
     pc.onicecandidate=e=>{if(e.candidate)try{
       VS.chan.send({type:'broadcast',event:'rtc',payload:{ice:e.candidate.toJSON(),from:VS.me}})}catch(x){}};
+    $('oppTag').textContent='CONNECTING…';$('oppCam').classList.remove('hidden'); // show it's trying
+    if(VS.rtcT)clearTimeout(VS.rtcT);
+    VS.rtcT=setTimeout(()=>{if(pc&&pc.connectionState!=='connected'){
+      banner('📵 '+VS.oppName+' — video is slow to connect (network)','#ffb03e')}},9000);
     try{const par=VS.vSend.getParameters();
       par.encodings=(par.encodings&&par.encodings.length?par.encodings:[{}]);
       par.encodings[0].maxBitrate=300000;par.encodings[0].scaleResolutionDownBy=1.5;
@@ -1328,6 +1349,7 @@ function vsStopRtc(dead){
   const v=$('oppVid');v.srcObject=null;v.muted=false;
   $('oppMute').textContent='🔊';
   $('oppCam').classList.add('hidden');
+  if(VS.rtcT){clearTimeout(VS.rtcT);VS.rtcT=null}
 }
 $('oppMute').onclick=()=>{
   const v=$('oppVid');v.muted=!v.muted;
@@ -1352,6 +1374,7 @@ function copyChallenge(){
     else{shareChallenge(VS.privCode)}}catch(e){shareChallenge(VS.privCode)}
 }
 function vsJoinPrivate(code,isCreator){
+  VS.shareCam=true;VS.shareMic=true;privLabels();
   VS.priv=true;VS.privCode=code;VS.isCreator=isCreator;
   $('vsSpin').classList.remove('hidden');
   $('vsOv').classList.remove('hidden');
@@ -1371,6 +1394,7 @@ function vsCleanup(){
   stopMusic();
   vsStopRtc();
   $('vsOv').classList.add('hidden');
+  $('btnCamShare').classList.add('hidden');$('btnMicShare').classList.add('hidden');
   $('privBox').classList.add('hidden');
   VS.priv=false;VS.privCode='';VS.isCreator=false;
   {const bc=$('btnChallenge');if(bc){bc.dataset.i=VS.pendRoom?'accept':'challenge';bc.classList.toggle('accept',!!VS.pendRoom)}}
