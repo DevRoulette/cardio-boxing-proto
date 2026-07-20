@@ -43,7 +43,7 @@
   #startOv{justify-content:flex-start;overflow-y:auto;padding-top:5vh;padding-bottom:44px}
   .overlay h1{font-family:'Bungee',cursive;font-size:clamp(30px,7vw,56px);line-height:1.05}
   .overlay h1 .c{color:var(--cyan)}.overlay h1 .m{color:var(--magenta)}
-  .overlay p{max-width:520px;font-size:15px;color:#aab3d6;line-height:1.5}
+  .overlay p{max-width:520px;font-size:15px;color:#c3ccea;line-height:1.5}
   .ctl{background:var(--tunnel);border:1px solid #2a3357;border-radius:12px;padding:11px;font-size:13px;max-width:225px}
   .ctl b{color:var(--lime);display:block;font-family:'Bungee',cursive;font-size:14px;margin-bottom:3px}
   button{font-family:'Bungee',cursive;font-size:18px;color:var(--ink);background:var(--lime);border:none;
@@ -155,7 +155,7 @@
   <button id="btnStreamer" class="alt" data-i="streamer"></button>
   <div style="display:flex;align-items:center;gap:10px"><div id="bootSpin" class="hidden"></div>
     <div class="status" id="startStatus"></div></div>
-  <div style="font-size:13px;color:#6f7aa6" data-i="camNote"></div>
+  <div style="font-size:13px;color:#c3ccea" data-i="camNote"></div>
     <div class="lbtitle" style="margin-top:14px" data-i="top20"></div>
   <ol id="homeLb"><li>…</li></ol>
 </div>
@@ -166,7 +166,7 @@
   <div style="width:280px;height:14px;border:2px solid var(--cyan);border-radius:8px;overflow:hidden">
     <div id="calFill" style="height:100%;width:0%;background:var(--lime)"></div>
   </div>
-  <div style="font-size:13px;color:#6f7aa6" id="calSkip"></div>
+  <div style="font-size:13px;color:#c3ccea" id="calSkip"></div>
 </div>
 
 <div class="overlay hidden" id="vsOv">
@@ -177,7 +177,7 @@
     <button id="tglCam" class="alt">📷 CAM: SHOWN</button>
     <button id="tglMic" class="alt">🎤 MIC: ON</button>
   </div>
-  <p style="font-size:13px;color:#6f7aa6">Your real guard blocks their real punches. Send this page to a friend to duel.</p>
+  <p id="vsHint" style="font-size:13px;color:#c3ccea" data-i="vsInviteHint"></p>
   <div id="privBox" class="hidden">
     <div style="font-family:'Bungee',cursive;font-size:13px;color:#8892b8" data-i="roomCode"></div>
     <div id="privCode"></div>
@@ -222,6 +222,7 @@ const T=k=>(I18N[LANG][k]!=null?I18N[LANG][k]:(I18N.en[k]!=null?I18N.en[k]:k));
 function applyLang(){
   try{localStorage.setItem('bx_lang',LANG)}catch(e){}
   document.documentElement.lang=LANG;
+  document.documentElement.dir=(LANG==='ar')?'rtl':'ltr';
   document.querySelectorAll('[data-i]').forEach(el=>el.textContent=T(el.dataset.i));
   document.querySelectorAll('#langRow button').forEach(b=>b.classList.toggle('on',b.dataset.l===LANG));
   const pn=document.getElementById('playerName');if(pn)pn.placeholder=T('namePh');
@@ -232,6 +233,10 @@ Object.assign(I18N.en,{"streamer": "📺 VS STREAMER", "strAccept": "⚔️ FIGH
 Object.assign(I18N.fr,{"streamer": "📺 VS STREAMER", "strAccept": "⚔️ AFFRONTER LE STREAMER", "strWaitViewers": "EN ATTENTE DE VIEWERS…", "strQueuePos": "⏳ #{k} DANS LA FILE POUR AFFRONTER {n}", "strPlayAgain": "🔁 REJOUER", "strEndRoom": "✖ FERMER LE SALON", "strShareHint": "Partage ce lien avec tes viewers — ils font la file pour t’affronter en direct :", "strMsg": "🎮 Viens m’affronter EN DIRECT sur {g} ! Fais la file et bats-moi :", "strEnded": "STREAM TERMINÉ", "strYourTurn": "À TON TOUR ! PRÊT 🔥", "strLeftNext": "VIEWER PARTI ⏭ SUIVANT !","challenge": "📲 DÉFIER UN AMI", "accept": "⚔️ ACCEPTER LE DÉFI", "privWaitCode": "EN ATTENTE DE TON AMI…", "privJoin": "CONNEXION À TON AMI…", "roomCode": "CODE DU SALON", "sendInvite": "📲 ENVOYER L’INVITE", "copyLink": "📋 COPIER LE LIEN", "roomFull": "SALON PLEIN — ce match a déjà commencé", "linkCopied": "LIEN COPIÉ 📋", "challMsg": "{e} Je te défie sur {g} ! Touche pour m’affronter :"});
 Object.assign(I18N.ar,{"streamer": "📺 ضد الستريمر", "strAccept": "⚔️ واجه الستريمر", "strWaitViewers": "في انتظار المشاهدين…", "strQueuePos": "⏳ #{k} في الطابور لمواجهة {n}", "strPlayAgain": "🔁 العب مجددًا", "strEndRoom": "✖ إغلاق الغرفة", "strShareHint": "شارك هذا الرابط مع مشاهديك — يصطفّون لمواجهتك مباشرة:", "strMsg": "🎮 تعال واجهني مباشرة على {g}! اصطفّ واهزمني:", "strEnded": "انتهى البث", "strYourTurn": "دورك! استعد 🔥", "strLeftNext": "غادر المشاهد ⏭ التالي!","challenge": "📲 تحدَّ صديقًا", "accept": "⚔️ اقبل التحدي", "privWaitCode": "في انتظار صديقك…", "privJoin": "جارٍ الاتصال بصديقك…", "roomCode": "رمز الغرفة", "sendInvite": "📲 أرسل الدعوة", "copyLink": "📋 انسخ الرابط", "roomFull": "الغرفة ممتلئة — بدأت المباراة بالفعل", "linkCopied": "تم نسخ الرابط 📋", "challMsg": "{e} أتحداك على {g}! اضغط لتلعب ضدي:"});
 Object.assign(I18N.es,{"streamer": "📺 VS STREAMER", "strAccept": "⚔️ RETA AL STREAMER", "strWaitViewers": "ESPERANDO VIEWERS…", "strQueuePos": "⏳ #{k} EN LA COLA PARA RETAR A {n}", "strPlayAgain": "🔁 JUGAR OTRA VEZ", "strEndRoom": "✖ CERRAR SALA", "strShareHint": "Comparte este enlace con tus viewers — hacen cola para retarte en vivo:", "strMsg": "🎮 ¡Ven a retarme EN VIVO en {g}! Haz cola y vénceme:", "strEnded": "STREAM TERMINADO", "strYourTurn": "¡TU TURNO! LISTO 🔥", "strLeftNext": "VIEWER SE FUE ⏭ ¡SIGUIENTE!","challenge": "📲 RETA A UN AMIGO", "accept": "⚔️ ACEPTAR EL RETO", "privWaitCode": "ESPERANDO A TU AMIGO…", "privJoin": "CONECTANDO CON TU AMIGO…", "roomCode": "CÓDIGO DE SALA", "sendInvite": "📲 ENVIAR INVITACIÓN", "copyLink": "📋 COPIAR ENLACE", "roomFull": "SALA LLENA — ese partido ya empezó", "linkCopied": "ENLACE COPIADO 📋", "challMsg": "{e} ¡Te reto en {g}! Toca para jugar contra mí:"});
+Object.assign(I18N.en,{"engineFail":"Couldn't load the game engine — check your connection and try again.","noOpponents":"Nobody's online right now — invite a friend to fight.","mpUnavail":"Multiplayer unavailable — check your connection.","friendNotHere":"Your friend isn't here — the link may have expired. Share a new one or go back.","vsMatchHint":"Your real guard blocks their real punches. Matching you with a live player…","vsInviteHint":"Your real guard blocks their real punches. Send this link to a friend to duel.","beFirst":"No fights yet — be the first!","lbOff":"Leaderboard offline"});
+Object.assign(I18N.fr,{"engineFail":"Impossible de charger le moteur du jeu — vérifie ta connexion et réessaie.","noOpponents":"Personne en ligne pour l'instant — invite un ami à combattre.","mpUnavail":"Multijoueur indisponible — vérifie ta connexion.","friendNotHere":"Ton ami n'est pas là — le lien a peut-être expiré. Renvoie-le ou reviens en arrière.","vsMatchHint":"Ta vraie garde bloque ses vrais coups. Recherche d'un joueur en direct…","vsInviteHint":"Ta vraie garde bloque ses vrais coups. Envoie ce lien à un ami pour un duel.","beFirst":"Aucun combat pour l'instant — sois le premier !","lbOff":"Classement hors ligne"});
+Object.assign(I18N.ar,{"engineFail":"تعذّر تحميل محرك اللعبة — تحقق من اتصالك وأعد المحاولة.","noOpponents":"لا أحد متصل الآن — ادعُ صديقًا للقتال.","mpUnavail":"اللعب الجماعي غير متاح — تحقق من اتصالك.","friendNotHere":"صديقك غير موجود — قد يكون الرابط منتهيًا. شاركه من جديد أو ارجع.","vsMatchHint":"حِراستك الحقيقية تصدّ لكماته الحقيقية. جارٍ إيجاد لاعب مباشر…","vsInviteHint":"حِراستك الحقيقية تصدّ لكماته الحقيقية. أرسل هذا الرابط لصديق للمبارزة.","beFirst":"لا قتالات بعد — كن الأول!","lbOff":"لوحة الصدارة غير متصلة"});
+Object.assign(I18N.es,{"engineFail":"No se pudo cargar el motor del juego — revisa tu conexión e inténtalo de nuevo.","noOpponents":"Nadie en línea ahora mismo — invita a un amigo a pelear.","mpUnavail":"Multijugador no disponible — revisa tu conexión.","friendNotHere":"Tu amigo no está aquí — el enlace pudo caducar. Compártelo otra vez o vuelve.","vsMatchHint":"Tu guardia real bloquea sus golpes reales. Buscando un jugador en vivo…","vsInviteHint":"Tu guardia real bloquea sus golpes reales. Envía este enlace a un amigo para un duelo.","beFirst":"Aún no hay peleas — ¡sé el primero!","lbOff":"Clasificación sin conexión"});
 
 const cnv=$('ring'),ctx=cnv.getContext('2d');
 let W=innerWidth,H=innerHeight;
@@ -311,6 +316,7 @@ async function initCamera(){
     baseOptions:{modelAssetPath:
       'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',
       delegate:'GPU'},runningMode:'VIDEO',numPoses:1});
+  engineLoaded=true; // engine+WASM are up; any later failure is the camera, not the network
   $('startStatus').textContent=T('reqCam');
   const stream=await navigator.mediaDevices.getUserMedia({video:{width:480,height:360},audio:true});
   micTrack=stream.getAudioTracks()[0]||null;
@@ -321,7 +327,7 @@ async function initCamera(){
   $('bootSpin').classList.add('hidden');$('startStatus').textContent='';
   landmarker=lmk; // cache only after the whole chain succeeded — a denied camera can be retried
 }
-let micTrack=null;
+let micTrack=null,engineLoaded=false;
 const pose={face:null};
 
 /* ---- input ---- */
@@ -365,7 +371,7 @@ function poseLoop(){
   }
   if(res.landmarks&&res.landmarks[0]){
     const lm=res.landmarks[0];
-    const dt=Math.min(.1,(now-lastPose)/1000)||.033;lastPose=now;
+    const rawDt=(now-lastPose)/1000;const dt=Math.min(.1,rawDt)||.033;lastPose=now;
     pose.face={x:lm[0].x,y:lm[0].y,w:Math.max(.06,Math.abs(lm[7].x-lm[8].x))};
     shoulderW=Math.max(.08,Math.abs(lm[11].x-lm[12].x));
     const mid=1-((lm[11].x+lm[12].x)/2);
@@ -374,8 +380,8 @@ function poseLoop(){
       &&Math.abs(lm[15].x-lm[16].x)<shoulderW*1.7;
     if(cal.active&&!cal.done){
       const vis=i=>(lm[i].visibility==null||lm[i].visibility>.5)&&lm[i].x>0&&lm[i].x<1&&lm[i].y>0&&lm[i].y<1;
-      const shOk=vis(11)&&vis(12),handL=vis(15),handR=vis(16),hipsOk=vis(23)&&vis(24);
-      const bodyOk=shOk&&hipsOk&&handL&&handR;
+      const shOk=vis(11)&&vis(12),handL=vis(15),handR=vis(16);
+      const bodyOk=shOk&&handL&&handR;
       if(bodyOk){cal.seen=true;cal.lastMid=mid}
       if(!bodyOk){
         cal.samples=0;$('camwrap').classList.remove('good');
@@ -383,7 +389,7 @@ function poseLoop(){
           !shOk?T('calStepBack')
           :(handL!==handR)?T('calBoth')
           :(!handL)?T('calHands')
-          :'Step back a little — hips in the frame too';
+          :T('calStepBack');
         $('calFill').style.width='0%';
       }else if(!guardUp){
         cal.samples=0;$('camwrap').classList.remove('good');
@@ -409,10 +415,12 @@ function poseLoop(){
       h.pext=h.ext;h.ext=Math.hypot(w.x-s.x,w.y-s.y)/shoulderW;
       h.vxN=(h.vxN||0)*.4+(((h.x-h.px)/dt)/Math.max(.1,shoulderW))*.6;
       h.cool=Math.max(0,h.cool-dt);
-      if(F.state==='fight'&&h.cool<=0&&FX.stop<=0){ // no free hits inside frozen frames
-        const upper=h.vyN<-5&&h.y<s.y+.25&&h.py>s.y+.05; // fist rocketing UP past the chest
-        const jab=h.speed>1.5&&h.ext>1.0&&h.ext>h.pext+.035;
-        const hook=Math.abs(h.vxN)>4.2&&h.ext>.8&&h.y<s.y+.35; // lateral swing = hook (no extension needed)
+      if(F.state==='fight'&&h.cool<=0&&FX.stop<=0&&rawDt<.12){ // no free hits inside frozen OR too-sparse (unreliable velocity) frames
+        const oth=hands[k==='L'?'R':'L'];
+        const upper=h.vyN<-5&&h.y<s.y+.25&&h.py>s.y+.05&&!(oth.vyN<-5); // both fists rising together = raising guard, not an uppercut
+        const jab=(h.speed>1.5&&h.ext>1.0&&h.ext>h.pext+.035)
+          ||(h.speed>1.6&&h.ext>.7&&h.ext>h.pext+.08); // 2nd clause: forward jab that foreshortens below full reach but still shoots out fast
+        const hook=Math.abs(h.vxN)>4.2&&h.ext>.8&&h.y<s.y+.35&&Math.abs(lean)<.38; // lateral swing = hook; suppress while a dodge lean is committed
         const body=(jab||hook)&&h.y>s.y+.16&&!upper;
         if(upper||jab||hook){
           h.cool=upper?.55:.36;h.anim=1;h.upper=upper?1:0;
@@ -517,6 +525,10 @@ const HEAD_OPEN=()=>F.mode==='pvp'
   ?(!VS.oppGuard||F.phase==='recover'||F.phase==='hurt')
   :(F.phase==='breathe'||F.phase==='recover'||F.phase==='stagger'||F.phase==='hurt');
 
+let wakeLock=null;
+function reqWake(){try{if('wakeLock'in navigator)navigator.wakeLock.request('screen').then(w=>{wakeLock=w}).catch(()=>{})}catch(e){}}
+function relWake(){try{wakeLock&&wakeLock.release()}catch(e){}wakeLock=null}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&(F.state==='fight'||F.state==='ko'||F.state==='down'))reqWake()}); // wakeLock drops when tab backgrounds — re-acquire
 function startFight(lvl){
   F.mode='solo';
   $('btnRematch').classList.add('hidden'); // PvP UI must never leak into solo
@@ -525,7 +537,7 @@ function startFight(lvl){
   if(lvl===0){bars.me.v=100;bars.me.g=100}else{bars.me.v=Math.min(100,bars.me.v+25)}
   F.state='fight';F.phase='guard';F.phaseT=lvl===0?2.2:1.2;F.combo=0;
   F.roundT=90;F.lastSec=-1;F.myKd=0;F.opKd=0;kdUI();
-  startMusic();
+  startMusic();reqWake();
   if(rec.armed&&!rec.active){rec.armed=false;startRec()}
   Object.assign(F.anim,{guard:1,ext:0,hurt:0,hurtUp:0,slump:0,knock:0,gRattle:0,wob:0,gut:0});
   F.tut=lvl===0?1:0;
@@ -657,7 +669,7 @@ function opponentLands(dmg,o){
       if(F.mode==='pvp'){try{VS.chan&&VS.chan.send({type:'broadcast',event:'kd',payload:{n:F.myKd,from:VS.me}})}catch(e){}}
       return;
     }
-    F.state='over';SFX.ko();FX.slow=1;stopMusic();
+    F.state='over';SFX.ko();FX.slow=1;stopMusic();relWake();
     if(F.mode==='pvp'){
       bumpStreak(0);
       if(VS.int){clearInterval(VS.int);VS.int=null}
@@ -690,7 +702,7 @@ function decision(){
     setTimeout(()=>startFight(win?F.lvl+1:F.lvl),1900);
     return;
   }
-  F.state='over';
+  F.state='over';relWake();
   if(F.mode==='pvp')bumpStreak(win?1:0);
   $('endTitle').innerHTML=draw?'<span class="c">'+T('drawT')+'</span> 🤝'
     :win?'<span style="color:var(--lime)">WON ON POINTS</span> 🥊'
@@ -967,8 +979,8 @@ async function loadHomeLB(){
     const top=await r.json();
     $('homeLb').innerHTML=top.length?top.map((e,i)=>
       '<li><span><span class="rk">'+(i+1)+'.</span>'+esc(e.name)+'</span><span class="lbscore">'+e.score+'</span></li>').join('')
-      :'<li>No fights yet — be the first!</li>';
-  }catch(e){$('homeLb').innerHTML='<li>Leaderboard offline</li>'}}
+      :'<li>'+T('beFirst')+'</li>';
+  }catch(e){$('homeLb').innerHTML='<li>'+T('lbOff')+'</li>'}}
 function LBH(){return {apikey:SBK,Authorization:'Bearer '+SBK,'Content-Type':'application/json'}}
 async function worldCount(f){
   const r=await fetch(LBURL+'?select=id'+f+'&limit=1',{headers:{...LBH(),Prefer:'count=exact'}});
@@ -1035,7 +1047,7 @@ function drawFilter(c,vx,vy,dw,dh){
 function drawRec(){
   if(!rec.active)return;
   const _n=performance.now();
-  if(rec._last&&_n-rec._last<41){rec.raf=requestAnimationFrame(drawRec);return}
+  if(rec._last&&_n-rec._last<66){rec.raf=requestAnimationFrame(drawRec);return} // ~15fps: leave more CPU for pose detection while recording
   rec._last=_n;
   const c=rec.ctx,RW=720,RH=1280,g=cnv;
   c.fillStyle='#0b0e1a';c.fillRect(0,0,RW,RH);
@@ -1162,6 +1174,9 @@ function vsEnterLobby(){
   $('vsStatus').textContent=T('searching');
   $('vsSpin').classList.remove('hidden');
   $('vsOv').classList.remove('hidden');
+  $('vsHint').textContent=T('vsMatchHint');
+  VS.lobbySubbed=false;
+  if(VS.lobbyTimer){clearTimeout(VS.lobbyTimer);VS.lobbyTimer=null}
   VS.me=String(Date.now())+'-'+Math.floor(Math.random()*1e6);
   VS.lobby=sbc.channel('cardio-box-lobby',{config:{presence:{key:VS.me}}});
   VS.lobby.on('presence',{event:'sync'},()=>{
@@ -1178,10 +1193,25 @@ function vsEnterLobby(){
       }
     }
   });
-  VS.lobby.subscribe(s=>{if(s==='SUBSCRIBED')VS.lobby.track({name:playerName})});
+  VS.lobby.subscribe(s=>{
+    if(s==='SUBSCRIBED'){VS.lobbySubbed=true;VS.lobby.track({name:playerName})}
+    else if(s==='CHANNEL_ERROR'||s==='TIMED_OUT'){ // realtime blocked/down — don't spin forever
+      if(VS.lobbyTimer){clearTimeout(VS.lobbyTimer);VS.lobbyTimer=null}
+      if(VS.lobby){sbc.removeChannel(VS.lobby);VS.lobby=null}
+      $('vsSpin').classList.add('hidden');$('vsStatus').textContent=T('mpUnavail');
+    }
+  });
+  VS.lobbyTimer=setTimeout(()=>{
+    if(VS.chan||VS.paired||!VS.on)return; // already matched or left
+    if(VS.lobby){sbc.removeChannel(VS.lobby);VS.lobby=null}
+    if(!VS.lobbySubbed){$('vsSpin').classList.add('hidden');$('vsStatus').textContent=T('mpUnavail');return}
+    banner(T('noOpponents'),'#ffb03e'); // nobody online — fall back to an invitable private room
+    vsJoinPrivate(makeCode(),true);
+  },15000);
 }
 function vsJoinRoom(roomId,oppName,isHost){
   if(VS.chan)return;
+  if(VS.lobbyTimer){clearTimeout(VS.lobbyTimer);VS.lobbyTimer=null}
   VS.oppName=oppName;VS.host=isHost;VS.paired=false;VS.rtcDead=false;
   if(!VS.priv)$('vsStatus').textContent='FOUND '+oppName+'! CONNECTING…';
   VS.chan=sbc.channel('cardio-box-'+roomId,{config:{presence:{key:VS.me}}});
@@ -1192,7 +1222,7 @@ function vsJoinRoom(roomId,oppName,isHost){
   });
   VS.chan.on('broadcast',{event:'swing'},({payload:p})=>{
     if(!p||p.from!==VS.oppKey||F.state!=='fight')return;
-    const t=p.t==='upper'?'upper':'jab';
+    const t=p.t==='upper'?'upper':p.t==='body'?'body':'jab';
     if(F.phase==='windup'||F.phase==='punch'){ // don't clobber an in-flight punch — queue it
       if(VS.swingQ.length<2)VS.swingQ.push(t);
       return;
@@ -1284,6 +1314,12 @@ function vsJoinRoom(roomId,oppName,isHost){
       vsEnterLobby();
     }
   },10000);
+  else if(!VS.streamer)VS.roomTimer=setTimeout(()=>{ // private challenge link: friend never showed up
+    if(!VS.paired&&VS.on){
+      $('vsSpin').classList.add('hidden');
+      $('vsStatus').textContent=T('friendNotHere');
+    }
+  },20000);
 }
 function vsStartMatch(){
   VS.remMe=false;VS.remOpp=false;VS.swingQ=[];
@@ -1293,7 +1329,7 @@ function vsStartMatch(){
   F.mode='pvp';F.state='fight';F.phase='guard';F.phaseT=999;F.combo=0;
   F.op=null;F.pvpType='jab';
   F.roundT=90;F.lastSec=-1;F.myKd=0;F.opKd=0;kdUI();
-  startMusic();
+  startMusic();reqWake();
   if(rec.armed&&!rec.active){rec.armed=false;startRec()}
   ensureCrowd();
   Object.assign(F.anim,{guard:1,ext:0,hurt:0,hurtUp:0,slump:0,knock:0,gRattle:0,wob:0,gut:0});
@@ -1417,6 +1453,7 @@ function vsJoinPrivate(code,isCreator){
   VS.priv=true;VS.privCode=code;VS.isCreator=isCreator;
   $('vsSpin').classList.remove('hidden');
   $('vsOv').classList.remove('hidden');
+  $('vsHint').textContent=T('vsInviteHint');
   $('vsStatus').textContent=isCreator?(T('privWaitCode')+' '+code):T('privJoin');
   $('privBox').classList.toggle('hidden',!isCreator);
   if(isCreator)$('privCode').textContent=code;
@@ -1439,6 +1476,7 @@ function vsJoinStreamer(code,asHost){
   VS.shareCam=true;VS.shareMic=true;privLabels();
   VS.streamer=true;VS.strHost=asHost;VS.strCode=code;VS.lastOpp=null;VS.priv=true;
   $('vsSpin').classList.remove('hidden');$('vsOv').classList.remove('hidden');
+  $('vsHint').textContent=T('vsInviteHint');
   $('strBox').classList.toggle('hidden',!asHost);
   if(asHost){$('strLink').textContent=streamerUrl(code);$('vsStatus').textContent=T('strWaitViewers')}
   else $('vsStatus').textContent=T('privJoin');
@@ -1462,7 +1500,8 @@ function strHostPickNext(){ // host authority: choose next viewer, tell everyone
 function strViewerQueueUI(){ // viewer: show your position
   const {st,host,viewers}=strViewers();
   if(!host){banner(T('strEnded'),'#ff3ea5');vsCleanup();$('startOv').classList.remove('hidden');return}
-  const pos=viewers.indexOf(VS.me);
+  const q=viewers.filter(k=>k!==VS.lastOpp); // exclude the viewer currently racing so positions don't collide
+  const pos=q.indexOf(VS.me)+1;
   const sn=(st[host]&&st[host][0]&&st[host][0].name)||'STREAMER';
   if(!VS.paired&&F.state!=='fight')$('vsStatus').textContent=T('strQueuePos').replace('{k}',pos>=1?pos:1).replace('{n}',sn);
 }
@@ -1489,10 +1528,12 @@ function strOnEnd(){ // a streamer match just ended
 function vsCleanup(){
   if(VS.int){clearInterval(VS.int);VS.int=null}
   if(VS.roomTimer){clearTimeout(VS.roomTimer);VS.roomTimer=null}
+  if(VS.lobbyTimer){clearTimeout(VS.lobbyTimer);VS.lobbyTimer=null}
   if(VS.koT){clearTimeout(VS.koT);VS.koT=null}
   if(VS.chan){sbc.removeChannel(VS.chan);VS.chan=null}
   if(VS.lobby){sbc.removeChannel(VS.lobby);VS.lobby=null}
   VS.on=false;VS.paired=false;VS.remMe=false;VS.remOpp=false;VS.swingQ=[];
+  relWake();
   stopMusic();
   vsStopRtc();
   $('vsOv').classList.add('hidden');
@@ -1571,7 +1612,7 @@ async function beginCalibrated(cb){
     return true;
   }catch(e){
     $('bootSpin').classList.add('hidden');
-    $('startStatus').textContent=T('camFail').replace('{e}',e.message);
+    $('startStatus').textContent=engineLoaded?T('camFail').replace('{e}',e.message):T('engineFail');
     return false;
   }
 }
@@ -1592,22 +1633,22 @@ $('btnAgain').onclick=()=>{
 };
 $('btnChallenge').onclick=()=>{
   if(VS.pendRoom){beginCalibrated(()=>{VS.on=true;vsJoinPrivate(VS.pendRoom,false)})}
-  else{const code=makeCode();shareChallenge(code);beginCalibrated(()=>{VS.on=true;vsJoinPrivate(code,true)})}
+  else{const code=makeCode();beginCalibrated(()=>{VS.on=true;vsJoinPrivate(code,true)})} // invite is a deliberate 2nd tap (SEND INVITE/COPY LINK in the lobby), not an auto share-sheet
 };
-$('btnStreamer').onclick=()=>{const code=makeStrCode();shareStreamer(code);
+$('btnStreamer').onclick=()=>{const code=makeStrCode(); // share happens from the room (SEND INVITE/COPY LINK), not on this tap
   if(typeof beginCalibrated==='function')beginCalibrated(()=>{VS.on=true;vsJoinStreamer(code,true)});
   else{grabName();VS.on=true;vsJoinStreamer(code,true)}};
 $('btnStrShare').onclick=()=>shareStreamer(VS.strCode);
 $('btnStrCopy').onclick=()=>copyStreamer();
 $('btnStrEnd').onclick=()=>{vsCleanup();$('startOv').classList.remove('hidden')};
-(()=>{const sr=new URLSearchParams(location.search).get('str');
-  if(sr&&/^[A-Z0-9]{4,8}$/.test(sr)){VS.pendStr=sr;
+(()=>{const sr=(new URLSearchParams(location.search).get('str')||'').trim().toUpperCase();
+  if(/^[A-Z0-9]{4,8}$/.test(sr)){VS.pendStr=sr;
     const bc=$('btnChallenge');if(bc){bc.dataset.i='strAccept';bc.classList.add('accept');
       bc.onclick=()=>{if(typeof beginCalibrated==='function')beginCalibrated(()=>{VS.on=true;vsJoinStreamer(sr,false)});else{grabName();VS.on=true;vsJoinStreamer(sr,false)}}}}})();
 $('btnInvite').onclick=()=>shareChallenge(VS.privCode);
 $('btnCopy').onclick=()=>copyChallenge();
-(()=>{const r=new URLSearchParams(location.search).get('room');
-  if(r&&/^[A-Z0-9]{4,8}$/.test(r)){VS.pendRoom=r;
+(()=>{const r=(new URLSearchParams(location.search).get('room')||'').trim().toUpperCase();
+  if(/^[A-Z0-9]{4,8}$/.test(r)){VS.pendRoom=r;
     const bc=$('btnChallenge');bc.dataset.i='accept';bc.classList.add('accept');}})();
 applyLang();
 alive=true;requestAnimationFrame(loop);
