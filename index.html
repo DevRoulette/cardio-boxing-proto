@@ -1225,7 +1225,7 @@ function vsJoinRoom(roomId,oppName,isHost){
   VS.chan.on('broadcast',{event:'rtc'},({payload:p})=>vsRtcMsg(p));
   VS.chan.on('broadcast',{event:'str-go'},({payload:p})=>{
     if(!p||!VS.streamer||VS.strHost)return;
-    if(p.opp===VS.me&&!VS.paired&&F.state!=='fight'){ // I'm up next
+    if(p.opp===VS.me&&F.state!=='fight'){if(VS.strTimer){clearTimeout(VS.strTimer);VS.strTimer=null}VS.paired=false;VS.oppKey=null; // I'm up next
       VS.oppKey=p.host;VS.host=false;VS.paired=true;VS.seed=p.seed>>>0;
       VS.oppName=p.name||'STREAMER';
       banner(T('strYourTurn'),'#c8ff3e');
